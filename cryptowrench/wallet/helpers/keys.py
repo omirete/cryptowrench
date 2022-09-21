@@ -3,7 +3,12 @@ from ecdsa import SigningKey, VerifyingKey, SECP256k1
 
 from .key_validation import _is_public_key_compressed, _is_valid_private_key, _is_valid_public_key
 
-def get_private_key_and_chain_code_from_seed(seed):
+class ExtendedPrivateKey():
+    def __init__(self, private_key: bytes, chain_code: bytes) -> None:
+        self.private_key = private_key
+        self.chain_code  = chain_code
+
+def get_private_key_and_chain_code_from_seed(seed) -> ExtendedPrivateKey:
     # See:
     #   https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#master-key-generation
     #   https://learnmeabitcoin.com/technical/extended-keys
@@ -11,7 +16,7 @@ def get_private_key_and_chain_code_from_seed(seed):
     hmac_result = hmac.new(b'Bitcoin seed', seed, digestmod=hashlib.sha512).digest()
     priv_key = hmac_result[:32]
     chain_code = hmac_result[32:]
-    return priv_key, chain_code
+    return ExtendedPrivateKey(priv_key, chain_code)
 
 def get_public_key(private_key: bytes, compressed: bool = True):
     # From: https://developer.bitcoin.org/devguide/wallets.html?highlight=public
