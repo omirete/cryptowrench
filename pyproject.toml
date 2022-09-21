@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "cryptowrench"
+version = "0.1.0"
+description = "A set of tools for nerding around with crypto."
+authors = ["Federico Giancarelli <hello@federicogiancarelli.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.9"
+mnemonic = "^0.20"
+base58 = "^2.1.1"
+pycryptodome = "^3.15.0"
+ecdsa = "^0.18.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
