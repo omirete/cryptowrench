@@ -1,35 +1,111 @@
 import hashlib, hmac
-from re import match
+from typing import Union
 from ecdsa import SECP256k1, ellipticcurve
 from ecdsa.ecdsa import curve_secp256k1
 
 from .elliptic_math import _bip32_point, _bip32_serialize_point, _bip32_uncompress_elliptic_point
 from .key_validation import _is_public_key_compressed, _is_valid_chain_code, _is_valid_private_key, _is_valid_public_key
-from .keys import _compress_public_key, get_public_key 
+from .keys import _compress_public_key, get_public_key, ExtendedPrivateKey
 from .serialize import _serialize_extended_private_key, _serialize_extended_public_key
 from .hashfuncs import get_hash160
 
-
 class DerivationPath():
     def __init__(self, path: str) -> None:
+        assert path != '', "Please enter a path to derive a wallet."
         assert isinstance(path, str), "The path should be a string. Example: m/44'/0'/0'/0/0"
         path = path.replace(' ', '')
-        
-        path_pattern = r"(?P<path>^(?P<key_type>[m|M])(?:\/(?P<purpose>(?:0|[1-9][0-9]*)['])(?:\/(?P<coin_type>(?:0|[1-9][0-9]*)['])(?:\/(?P<account>(?:0|[1-9][0-9]*)['])(?:\/(?P<change>[01])(?:\/(?P<address_index>(?:0|[1-9][0-9]*)[']?))?)?)?)?)?)"
-        match_results = match(path_pattern, path)
-        assert match_results != None, "Could not parse derivation path. Make sure it is valid. Example: m/44'/0'/0'/0/0"
-        
-        path_dict = match_results.groupdict()
-        assert path_dict['path'] == path, "Could not parse derivation path. Make sure it is valid. Example: m/44'/0'/0'/0/0"
-        
-        self.key_type = path_dict['key_type']
-        self.purpose = path_dict['purpose']
-        self.coin_type = path_dict['coin_type']
-        self.account = path_dict['account']
-        self.change = path_dict['change']
-        self.address_index = path_dict['address_index']
+        str_digits = [str(d) for d in range(10)]
+        for c in path:
+            assert ['m', '/', "'", *str_digits].count(c.lower()) > 0, f"Invalid character detected in path: {c}"
+        assert path.count('/') < 6, "A derivation path can have at most 5 elements, as in this example: m/44'/0'/0'/0/0"
+        path_parts = path.split('/')
+        assert len(path_parts) > 0, "Could not parse the derivation path. Make sure it has the correct format. Example: m/44'/0'/0'/0/0"
 
-def derive_wallet(derivation_path: str, master_private_key: bytes, master_chain_code: bytes, flag_compress_public_keys: bool = True, main_net: bool = True):
+        self.key_type = None
+        self.purpose = None
+        self.coin_type = None
+        self.account = None
+        self.change = None
+        self.address_index = None
+
+        try:
+            # We try to fill in order all of the values that we can.
+            # When we reach an index that does not exist in path_parts, it will
+            # catch the IndexError and the code will carry on. With the values
+            # that were found up to that point. (The rest of the parts will be 
+            # 'None' because the are not present in the provided derivation
+            # path).
+            self.key_type = path_parts[0]
+            self.purpose = path_parts[1]
+            self.coin_type = path_parts[2]
+            self.account = path_parts[3]
+            self.change = path_parts[4]
+            # See spec in: 
+            # https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki#Change)
+            # Strictly speaking (according to the spec cited above) the "change"
+            # component can only be 0 or 1. We however leave this restriction
+            # away, because one of the test vectors in BIP32 asks us to test the
+            # path m/0'/1/2'/2, where the change is set to 2. (see:
+            # https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#Test_Vectors).
+            # Because of this, the following line is commented out but left
+            # there anyway for future reference.
+            # assert self.change == None or ['0', '1'].count(str(self.change)) == 1, 'Only 0 or 1 can be used for the "change" part of the wallet\'s derivation path.'
+            self.address_index = path_parts[5]
+        except IndexError:
+            pass
+
+        try:
+            pass
+        except:
+            pass
+    
+    @property
+    def depth(self):
+        derivation_index_secuence = (
+            self.purpose,
+            self.coin_type,
+            self.account,
+            self.change,
+            self.address_index
+        )
+        depth = 0
+        for next_index in derivation_index_secuence:
+            if next_index == None:
+                break
+            else:
+                depth += 1
+        return depth
+    
+    @property
+    def child_number(self):
+        derivation_index_secuence = (
+            self.purpose,
+            self.coin_type,
+            self.account,
+            self.change,
+            self.address_index
+        )
+        index = 0
+        for next_index in derivation_index_secuence:
+            if next_index == None:
+                break
+            else:
+                index = next_index
+        return index
+        
+
+
+
+def get_fingerprint(private_key: bytes = None) -> bytes:
+    if private_key == None:
+        return bytes.fromhex('00000000')
+    else:
+        public_key_compressed = get_public_key(
+            private_key=private_key,
+            compressed=True) # Must be compressed (serialized), as per BIP32.
+        return get_hash160(public_key_compressed)[:4] # Fingerprint
+
+def derive_wallet(derivation_path: DerivationPath, master_private_key: bytes, master_chain_code: bytes, flag_compress_public_keys: bool = True, main_net: bool = True):
     
     '''
     From: https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki
@@ -67,39 +143,38 @@ def derive_wallet(derivation_path: str, master_private_key: bytes, master_chain_
     '''
     assert _is_valid_private_key(master_private_key) == True, 'Invalid private key.'
     
-    path_details = DerivationPath(derivation_path)
+    key_type = derivation_path.key_type
+    purpose = derivation_path.purpose
+    coin_type = derivation_path.coin_type
+    account = derivation_path.account
+    change = derivation_path.change
+    address_index = derivation_path.address_index
+
+    coin_type = _derivation_path_component_to_int(coin_type)
+    account = _derivation_path_component_to_int(account)
+    # See spec in: 
+    # https://github.com/bitcoin/bips/blob/master/bip-0044.mediawiki#Change)
+    # Strictly speaking (according to the spec cited above) the "change"
+    # component can only be 0 or 1. We however leave this restriction
+    # away, because one of the test vectors in BIP32 asks us to test the
+    # path m/0'/1/2'/2, where the change is set to 2. (see:
+    # https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#Test_Vectors).
+    # Because of this, the "change" component is teated as any other, as seen in
+    # the following line.
+    change = _derivation_path_component_to_int(change)
+    address_index = _derivation_path_component_to_int(address_index)
     
-    key_type = path_details.key_type
-    purpose = path_details.purpose
-    coin_type = path_details.coin_type
-    account = path_details.account
-    change = path_details.change
-    address_index = path_details.address_index
-
-    supported_coins = {
-        "bitcoin": "0'",
-        "ethereum": "60'"
-    }
-
-    assert coin_type in supported_coins.values() or coin_type == None, 'Coin not suported.'
-    
-    # The "[:-1]" part removes the apostrophe (for example: 0' -> 0).
-    coin_type = None if coin_type == None else (2**31 + int(coin_type[:-1]))
-    account = None if account == None else (2**31 + int(account[:-1]))
-    change = None if change == None else int(change)
-    address_index = None if address_index is None else int(address_index)
-
     # 'm' is for private key, and 'M' is for public key.
     if key_type == 'm':
         key_depth_0 = master_private_key
         derivation_function = ChildKeyDerivation_private
-        serialization_function = _serialize_extended_private_key
-    else:
+    elif key_type == 'M':
         key_depth_0 =  get_public_key(
             private_key_as_bytes=master_private_key,
             compressed=flag_compress_public_keys)
         derivation_function = ChildKeyDerivation_public
-        serialization_function = _serialize_extended_public_key
+    else:
+        raise Exception(f"Unsuported key type: {key_type}. Please use either 'm' or 'M'.")
     
     current_key = key_depth_0
     current_chain_code = master_chain_code
@@ -109,6 +184,9 @@ def derive_wallet(derivation_path: str, master_private_key: bytes, master_chain_
     
     derivation_index_secuence = (purpose, coin_type, account, change, address_index)
     depth = 0
+
+    last_key = current_key
+    last_chain_code = current_chain_code
 
     for next_index in derivation_index_secuence:
         if next_index == None:
@@ -123,33 +201,20 @@ def derive_wallet(derivation_path: str, master_private_key: bytes, master_chain_
                 parent_chain_code_as_bytes=last_chain_code,
                 i=index)
     
-    if depth == 0:
-        fingerprint_parent_key = bytes.fromhex('00000000')
-    else:
-        last_public_key_compressed = get_public_key(
-            private_key=last_key,
-            compressed=True) # Must be compressed (serialized), as per BIP32.
-        fingerprint_parent_key = get_hash160(last_public_key_compressed)
-        fingerprint_parent_key = fingerprint_parent_key[:4] # Fingerprint
-    
-    serialized_key = serialization_function(
-        current_key,
-        current_chain_code,
-        purpose=purpose,
-        depth=depth,
-        fingerprint_parent_key=fingerprint_parent_key,
-        child_number=index,
-        main_net=True)
-    
-    return current_key, current_chain_code, serialized_key
+    return ExtendedPrivateKey(
+        private_key=current_key,
+        chain_code=current_chain_code,
+        parent=ExtendedPrivateKey(
+            private_key=last_key if depth > 0 else bytes.fromhex('00000000'),
+            chain_code=last_chain_code
+            # chain_code=last_chain_code if depth > 0 else bytes.fromhex('00000000')
+        ))
 
 def ChildKeyDerivation_private(parent_private_key_as_bytes, parent_chain_code_as_bytes, i):
     
     assert _is_valid_private_key(parent_private_key_as_bytes) == True, 'Invalid private key.'
     assert _is_valid_chain_code(parent_chain_code_as_bytes) == True, 'Invalid chain code.'
-    if isinstance(i, str) == True:
-        if i[-1] == '\'':
-            i = 2**31 + int(i[:-1])
+    i = _derivation_path_component_to_int(i)
     assert isinstance(i, int) == True, 'Index \'i\' must be an integer, or an integer with an apostrophe at the end.'
     assert i >= 0 and i <= 2**32-1, 'Index must be between 0 and 2^32-1.'
 
@@ -198,9 +263,7 @@ def ChildKeyDerivation_public(parent_pubKey_as_bytes, parent_chain_code_as_bytes
         parent_pubKey_as_bytes = _compress_public_key(
             parent_pubKey_as_bytes)
     assert _is_valid_chain_code(parent_chain_code_as_bytes) == True, 'Invalid chain code.'
-    if isinstance(i, str) == True:
-        if i[-1] == '\'':
-            i = 2**31 + int(i[:-1])
+    i = _derivation_path_component_to_int(i)
     assert isinstance(i, int) == True, 'Index \'i\' must be an integer, or an integer with an apostrophe at the end.'
     assert i >= 0 and i <= 2**32-1, 'Index must be between 0 and 2^32-1.'
 
@@ -263,3 +326,14 @@ def ChildKeyDerivation_public(parent_pubKey_as_bytes, parent_chain_code_as_bytes
         child_chain_code = I_R
 
         return child_public_key, child_chain_code
+
+def _derivation_path_component_to_int(component: Union[str, int, None]):
+    if isinstance(component, str) == True:
+        if component[-1] == '\'':
+            return 2**31 + int(component[:-1])
+        return int(component)
+    elif isinstance(component, int):
+        return component
+    elif component == None:
+        return None
+    raise Exception(f'Could not parse derivation path component: {component}.')

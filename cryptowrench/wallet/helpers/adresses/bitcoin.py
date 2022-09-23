@@ -1,7 +1,21 @@
 import hashlib
-from base58 import b58encode
+from base58 import b58encode, BITCOIN_ALPHABET
 
 from ..hashfuncs import get_hash160
+
+class BitcoinAddressHandler():
+    def __init__(self, public_key: bytes, main_net: bool) -> None:
+        self._public_key = public_key
+        self._main_net = main_net
+
+    @property
+    def P2PKH(self):
+        return address_P2PKH(
+            public_key=self._public_key,
+            main_net=self._main_net
+        )
+    
+
 
 def address_P2PKH(public_key: bytes, main_net: bool = True):
         # assert _is_valid_public_key(public_key) == True, 'Invalid public key.'
@@ -24,5 +38,5 @@ def address_P2PKH(public_key: bytes, main_net: bool = True):
 
         address_before_b58_encoding = version_and_hash160 + checksum
 
-        return str(b58encode(address_before_b58_encoding), encoding='utf-8')
+        return str(b58encode(address_before_b58_encoding, alphabet=BITCOIN_ALPHABET), encoding='utf-8')
 

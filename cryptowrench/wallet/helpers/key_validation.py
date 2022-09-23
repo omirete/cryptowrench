@@ -4,14 +4,14 @@ from ecdsa.ecdsa import curve_secp256k1
 
 from .elliptic_math import _bip32_uncompress_elliptic_point
 
-def _is_valid_private_key(private_key_as_bytes):
-    is_bytes = isinstance(private_key_as_bytes, bytes)
-    length = len(private_key_as_bytes)
+def _is_valid_private_key(private_key: bytes):
+    is_bytes = isinstance(private_key, bytes)
+    length = len(private_key)
     if is_bytes == True and length == 32:
         return True
     return False
 
-def _is_valid_wif(wif):
+def _is_valid_wif(wif: str):
     if isinstance(wif, str) == False:
         return False # WIF has to be entered as a string.
 
@@ -50,17 +50,17 @@ def _is_valid_wif(wif):
 
     return True
 
-def _is_valid_public_key(public_key_as_bytes):
+def _is_valid_public_key(public_key: bytes):
 
-    is_bytes = isinstance(public_key_as_bytes, bytes)
+    is_bytes = isinstance(public_key, bytes)
     if is_bytes != True:
         return False # Key must be entered in bytes.
     
-    length = len(public_key_as_bytes)
+    length = len(public_key)
     if length != 33 and length != 65:
         return False # Invalid length.
 
-    first_byte = public_key_as_bytes[0]
+    first_byte = public_key[0]
     if length == 65 and first_byte != 4:
         return False # For an uncompressed public key, the first byte has to be \x04.
     
@@ -71,27 +71,27 @@ def _is_valid_public_key(public_key_as_bytes):
     # lie actually on the SECP256k1 curve.
     
     if length == 33:
-        P = _bip32_uncompress_elliptic_point(public_key_as_bytes)
+        P = _bip32_uncompress_elliptic_point(public_key)
         x = int.from_bytes(P[0], byteorder='big')
         y = int.from_bytes(P[1], byteorder='big')
     else:
-        x = int.from_bytes(public_key_as_bytes[1:33], byteorder='big')
-        y = int.from_bytes(public_key_as_bytes[33:], byteorder='big')
+        x = int.from_bytes(public_key[1:33], byteorder='big')
+        y = int.from_bytes(public_key[33:], byteorder='big')
 
     if curve_secp256k1.contains_point(x, y) == False:
         return False # The public key does not lie on the SECP256k1 curve.
 
     return True # If we got to this point, the public key is valid.
 
-def _is_public_key_compressed(public_key_as_bytes):
+def _is_public_key_compressed(public_key: bytes):
 
-    assert _is_valid_public_key(public_key_as_bytes) == True, 'Invalid public key.'
-    length = len(public_key_as_bytes)
+    assert _is_valid_public_key(public_key) == True, 'Invalid public key.'
+    length = len(public_key)
     return True if length == 33 else False
 
-def _is_valid_chain_code(chain_code_as_bytes):
-    is_bytes = isinstance(chain_code_as_bytes, bytes)
-    length = len(chain_code_as_bytes)
+def _is_valid_chain_code(chain_code: bytes):
+    is_bytes = isinstance(chain_code, bytes)
+    length = len(chain_code)
     if is_bytes == True and length == 32:
         return True
     return False

@@ -1,5 +1,11 @@
 from ..hashfuncs import keccak256, keccak256_str
 
+# class EthereumAddressHandler():
+#     def __init__(self) -> None:
+#         pass
+    
+    
+
 def address_ethereum(uncompressed_public_key: bytes) -> str:
     
     # Remember uncompressed public key has format:

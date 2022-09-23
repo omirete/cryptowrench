@@ -1,12 +1,15 @@
+from __future__ import annotations
 import hmac, hashlib
 from ecdsa import SigningKey, VerifyingKey, SECP256k1
+from base58 import b58encode, BITCOIN_ALPHABET
 
 from .key_validation import _is_public_key_compressed, _is_valid_private_key, _is_valid_public_key
 
 class ExtendedPrivateKey():
-    def __init__(self, private_key: bytes, chain_code: bytes) -> None:
+    def __init__(self, private_key: bytes, chain_code: bytes, parent: ExtendedPrivateKey = None) -> None:
         self.private_key = private_key
         self.chain_code  = chain_code
+        self.parent = parent
 
 def get_private_key_and_chain_code_from_seed(seed) -> ExtendedPrivateKey:
     # See:
@@ -41,12 +44,12 @@ def get_public_key(private_key: bytes, compressed: bool = True):
     assert _is_valid_private_key(private_key) == True, 'Invalid private key.'
     assert isinstance(compressed, bool) == True, 'The "compressed" argument must be either True or False.'
 
-    private_key: SigningKey = SigningKey.from_string(
+    private_key_signing_key: SigningKey = SigningKey.from_string(
         string=private_key,
         curve=SECP256k1)
     
-    public_key_hex: VerifyingKey = private_key.get_verifying_key()
-    public_key_hex = public_key_hex.to_string().hex()
+    public_key_verifying_key: VerifyingKey = private_key_signing_key.get_verifying_key()
+    public_key_hex = public_key_verifying_key.to_string().hex()
     
     x = public_key_hex[:64]
     y = public_key_hex[64:]
@@ -75,3 +78,32 @@ def _compress_public_key(public_key_as_bytes):
         prefix = prefix_even if y_int % 2 == 0 else prefix_odd
 
         return prefix + x
+
+def get_wif_from_private_key(private_key: bytes, main_net: bool = True, generate_compressed: bool = True) -> str:
+    
+    assert _is_valid_private_key(private_key) == True, 'Invalid private key.'
+    assert isinstance(main_net, bool) == True, 'The \'main_net\' argument must be either True or False.'
+    assert isinstance(generate_compressed, bool) == True, 'The \'generate_compressed\' argument must be either True or False.'
+
+    # Generate WIF as per:
+    # https://en.bitcoin.it/wiki/Wallet_import_format
+    
+    WIF_MAIN_NET = bytes.fromhex('80')
+    WIF_TEST_NET = bytes.fromhex('EF')
+    WIF_COMPRESSION_FLAG = bytes.fromhex('01')
+
+    # See: https://www.royalfork.org/2014/07/31/address-gen/
+    network = WIF_MAIN_NET if main_net == True else WIF_TEST_NET
+    private_key_and_network = network + private_key
+    if generate_compressed == True:
+        private_key_and_network += WIF_COMPRESSION_FLAG
+    
+    # Compute checksum
+    hash_1 = hashlib.sha256(private_key_and_network).digest()
+    hash_2 = hashlib.sha256(hash_1).digest()
+    checksum = hash_2[:4]
+    
+    wif_before_b58_encoding = private_key_and_network + checksum
+    wif = str(b58encode(wif_before_b58_encoding, alphabet=BITCOIN_ALPHABET), encoding='utf-8')
+
+    return wif
