@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "cryptowrench"
-version = "0.1.1"
+version = "0.1.2"
 description = "A set of tools for nerding around with crypto."
 authors = ["Federico Giancarelli <hello@federicogiancarelli.com>"]
 license = "MIT"
