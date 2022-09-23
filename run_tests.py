@@ -1,4 +1,5 @@
 from cryptowrench.wallet import Wallet
+from cryptowrench.wallet.helpers.adresses.ethereum import checksum as ethereum_checksum
 
 test_vectors = [
     {
@@ -314,6 +315,13 @@ test_vectors_mnemonic = {
     ]
 }
 
+test_ethereum_address_checksums = [
+    "0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed",
+    "0xfB6916095ca1df60bB79Ce92cE3Ea74c37c5d359",
+    "0xdbF03B407c01E7cD3CBea99509d93f8DDDC8C6FB",
+    "0xD1220A0cf47c7B9Be7A2E6BA89F429762e7b9aDb",
+]
+
 # Test hd derivation by path
 for test_vector in test_vectors:
     print("Testing vector with seed: " + test_vector["seed"])
@@ -354,4 +362,13 @@ for test_vars in test_vectors_mnemonic["english"]:
     seed = wallet.seed.hex()
     
     assert seed == expected_seed, "Failed test. Expected seed != obtained seed."
+    print(" -- \033[32mok\033[0m")
+
+print("Will now test Ethereum address checksums...")
+case = 0
+for address in test_ethereum_address_checksums:
+    case += 1
+    print(f" - Testing case {case}...")
+    checksum_encoded = ethereum_checksum(address)
+    assert checksum_encoded == address, f"{checksum_encoded} != expected {address}"
     print(" -- \033[32mok\033[0m")
