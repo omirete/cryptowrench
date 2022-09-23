@@ -148,7 +148,7 @@ test_vectors_mnemonic = {
             "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about",
             # Seed
             "c55257c360c07c72029aebc1b53c05ed0362ada38ead3e3e9efa3708e53495531f09a6987599d18264c1e1c92f2cf141630c7a3c4ab7c81b2f001698e7463b04",
-            # Extended private key of path m/???
+            # Extended private key of path "m" (Without anything else after the "m")
             "xprv9s21ZrQH143K3h3fDYiay8mocZ3afhfULfb5GX8kCBdno77K4HiA15Tg23wpbeF1pLfs1c5SPmYHrEpTuuRhxMwvKDwqdKiGJS9XFKzUsAF"
         ],
         [
@@ -361,7 +361,11 @@ for test_vars in test_vectors_mnemonic["english"]:
     
     seed = wallet.seed.hex()
     
-    assert seed == expected_seed, "Failed test. Expected seed != obtained seed."
+    child_wallet = wallet.hd_wallet('m')
+    ext_priv = child_wallet.serialized_extended_private_key.decode('utf-8')
+    
+    assert seed == expected_seed, f"Failed test. Expected seed {expected_seed} but obtained {seed}."
+    assert ext_priv == expected_ext_priv, f"Failed test. Expected extented private key {expected_ext_priv} but obtained {ext_priv}."
     print(" -- \033[32mok\033[0m")
 
 print("Will now test Ethereum address checksums...")
