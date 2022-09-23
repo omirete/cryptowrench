@@ -4,14 +4,14 @@ from ecdsa.ecdsa import curve_secp256k1
 
 from .elliptic_math import _bip32_uncompress_elliptic_point
 
-def _is_valid_private_key(private_key: bytes):
+def _is_valid_private_key(private_key: bytes) -> bool:
     is_bytes = isinstance(private_key, bytes)
     length = len(private_key)
     if is_bytes == True and length == 32:
         return True
     return False
 
-def _is_valid_wif(wif: str):
+def _is_valid_wif(wif: str) -> bool:
     if isinstance(wif, str) == False:
         return False # WIF has to be entered as a string.
 
@@ -50,7 +50,7 @@ def _is_valid_wif(wif: str):
 
     return True
 
-def _is_valid_public_key(public_key: bytes):
+def _is_valid_public_key(public_key: bytes) -> bool:
 
     is_bytes = isinstance(public_key, bytes)
     if is_bytes != True:
@@ -83,13 +83,13 @@ def _is_valid_public_key(public_key: bytes):
 
     return True # If we got to this point, the public key is valid.
 
-def _is_public_key_compressed(public_key: bytes):
+def _is_public_key_compressed(public_key: bytes) -> bool:
 
     assert _is_valid_public_key(public_key) == True, 'Invalid public key.'
     length = len(public_key)
     return True if length == 33 else False
 
-def _is_valid_chain_code(chain_code: bytes):
+def _is_valid_chain_code(chain_code: bytes) -> bool:
     is_bytes = isinstance(chain_code, bytes)
     length = len(chain_code)
     if is_bytes == True and length == 32:
