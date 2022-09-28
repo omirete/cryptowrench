@@ -1,6 +1,7 @@
 from hashlib import sha256
 from binascii import unhexlify
 import datetime as dt, time as t
+from typing import Literal, Union
 
 def littleEndian(hex_str):
     aux = [hex_str[i:i+2] for i in range(0, len(hex_str), 2)]
@@ -45,7 +46,7 @@ def validate_block_hash(version: str, hash_previous_block: str, hash_merkle_root
         # Block hash does not meet the target.
         return False
 
-def find_block_nonce(version: int, hash_previous_block: str, hash_merkle_root: str, time: str, bits: int) -> str:
+def find_block_nonce(version: int, hash_previous_block: str, hash_merkle_root: str, time: str, bits: int) -> Union[str, Literal[False]]:
     start_time = t.time()
     
     target = get_target_from_nBits(bits)
@@ -58,19 +59,24 @@ def find_block_nonce(version: int, hash_previous_block: str, hash_merkle_root: s
 
     header_hex_incomplete = version_hex + hashPrevBlock + hashMerkleRoot + time_hex + bits_hex
     
-    for i in range(4_000_000_000):
-        
+    # It will loop sequentially over all possible values of the nonce until it
+    # finds the magic value that makes the hash meet the target, if it exists
+    # for the given parameters. If it doesn't exist, it will return False,
+    # meaning the user will have to change some parameters (usually the
+    # timestamp) and try again.
+    magic_nonce_found = False
+    for i in range(0xffffffff):
         nonce = i.to_bytes(4, 'little').hex()
-        
-        header_hex = header_hex_incomplete + nonce
-        
-        header_binary = unhexlify(header_hex)
+        header_binary = unhexlify(header_hex_incomplete + nonce)
         calculated_hash = get_hash_from_header(header_binary)
         
         if int(calculated_hash, 16) < int(target, 16):
             end_time = t.time()
+            magic_nonce_found = True
             print('Nonce found:     ' + str(i))
             print('Time needed (s): ' + str(end_time-start_time))
             print('Block hash:      ' + str(calculated_hash))
             break
-    return nonce
+    if magic_nonce_found:
+        return nonce
+    return False
