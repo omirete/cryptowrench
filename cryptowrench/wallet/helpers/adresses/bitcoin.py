@@ -5,8 +5,9 @@ from ..hashfuncs import get_hash160
 from ..key_validation import _is_valid_public_key, _is_public_key_compressed
 
 class BitcoinAddressHandler():
-    def __init__(self, public_key: bytes, main_net: bool) -> None:
+    def __init__(self, public_key: bytes, uncompressed_public_key: bytes, main_net: bool) -> None:
         self._public_key = public_key
+        self._uncompressed_public_key = uncompressed_public_key
         self._main_net = main_net
 
     @property
@@ -17,9 +18,22 @@ class BitcoinAddressHandler():
         )
     
     @property
+    def P2PKH_uncompressed(self):
+        return address_P2PKH(
+            public_key=self._uncompressed_public_key,
+            main_net=self._main_net
+        )
+    
+    @property
     def P2SH(self):
         return address_P2SH(
             public_key=self._public_key,
+            main_net=self._main_net)
+    
+    @property
+    def P2SH_uncompressed(self):
+        return address_P2SH(
+            public_key=self._uncompressed_public_key,
             main_net=self._main_net)
         
     @property

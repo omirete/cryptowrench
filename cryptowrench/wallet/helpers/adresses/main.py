@@ -17,5 +17,6 @@ class AddressHandler():
     def bitcoin(self):
         return BitcoinAddressHandler(
             public_key=self._public_key,
+            uncompressed_public_key=self._uncompressed_public_key,
             main_net=self._main_net
         )
