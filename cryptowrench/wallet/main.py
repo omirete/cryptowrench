@@ -78,6 +78,14 @@ class Wallet():
         )
 
     @property
+    def wif_uncompressed_key(self):
+        return get_wif_from_private_key(
+            private_key=self._master_private_key,
+            main_net=self.main_net,
+            generate_compressed=False # CHECK
+        )
+
+    @property
     def address(self):
         return AddressHandler(
             public_key=self._master_public_key,
@@ -87,25 +95,52 @@ class Wallet():
     
     @property
     def serialized_extended_public_key(self):
-        return _serialize_extended_public_key(
-            public_key=self._master_public_key,
-            chain_code=self._master_chain_code,
-            purpose=self.derivation_path.purpose,
-            depth=self.derivation_path.depth,
-            fingerprint_parent_key=self.fingerprint_parent_key,
-            child_number=self.derivation_path.child_number,
-            main_net=self.main_net,
-        )
+        if self.derivation_path != None and self._master_chain_code != None:
+            return _serialize_extended_public_key(
+                public_key=self._master_public_key,
+                chain_code=self._master_chain_code,
+                purpose=self.derivation_path.purpose,
+                depth=self.derivation_path.depth,
+                fingerprint_parent_key=self.fingerprint_parent_key,
+                child_number=self.derivation_path.child_number,
+                main_net=self.main_net,
+            )
+        else:
+            return b'-'
     
     @property
     def serialized_extended_private_key(self):
-        return _serialize_extended_private_key(
-            private_key=self._master_private_key,
-            chain_code=self._master_chain_code,
-            purpose=self.derivation_path.purpose,
-            depth=self.derivation_path.depth,
-            fingerprint_parent_key=self.fingerprint_parent_key,
-            child_number=self.derivation_path.child_number,
-            main_net=self.main_net,
-        )
+        if self.derivation_path != None and self._master_chain_code != None:
+            return _serialize_extended_private_key(
+                private_key=self._master_private_key,
+                chain_code=self._master_chain_code,
+                purpose=self.derivation_path.purpose,
+                depth=self.derivation_path.depth,
+                fingerprint_parent_key=self.fingerprint_parent_key,
+                child_number=self.derivation_path.child_number,
+                main_net=self.main_net,
+            )
+        else:
+            return b'-'
     
+    def print_wallet_info(self):
+        lines = []
+        if self.seed != None:
+            lines.append('Seed:                               ' + self.seed.hex())
+
+        lines.extend([
+            'Private key (raw hex):              ' + self._master_private_key.hex(),
+            'Private key (serialized):           ' + self.serialized_extended_private_key.decode('utf-8'),
+            'Public key (raw hex):               ' + self._master_public_key.hex(),
+            'Public key (serialized):            ' + self.serialized_extended_public_key.decode('utf-8'),
+            'Uncompressed pub. key (raw hex):    ' + self._master_uncompressed_public_key.hex(),
+            'Uncompressed pub. key (serialized): ' + self._master_public_key.hex(),
+            'WIF:                                ' + self.wif,
+            'WIF (uncompressed key):             ' + self.wif_uncompressed_key,
+            'Address (P2PKH):                    ' + self.address.bitcoin.P2PKH,
+            'Address (P2PKH, uncompressed key):  ' + self.address.bitcoin.P2PKH_uncompressed,
+            'Address (P2SH):                     ' + self.address.bitcoin.P2SH,
+            'Address (P2SH, uncompressed key):   ' + self.address.bitcoin.P2SH_uncompressed,
+            'Address (Bech32):                   ' + self.address.bitcoin.P2WPKH_wit0,
+        ])
+        print('\n'.join(lines))
