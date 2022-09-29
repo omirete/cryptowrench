@@ -10,6 +10,9 @@ pip -m install cryptowrench
 Feel free to use it for your own projects.
 
 ## Examples
+* [Create a new wallet](https://github.com/omirete/cryptowrench#create-a-new-wallet)
+* [Import an existing wallet (from mnemonic words)](https://github.com/omirete/cryptowrench#import-an-existing-wallet-from-mnemonic-words)
+* [Import an existing wallet (from seed)](https://github.com/omirete/cryptowrench#import-an-existing-wallet-from-seed)
 
 ### Create a new wallet
 ```python
