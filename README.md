@@ -1,4 +1,4 @@
-# Cryptowrench
+# Cryptowrench 🔑🔮
 
 This is a set of tools that I created to learn and play around with blockchains and cryptocurrencies in general.
 
