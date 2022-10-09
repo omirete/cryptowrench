@@ -1,7 +1,8 @@
 from __future__ import annotations
 import hmac, hashlib
-from ecdsa import SigningKey, VerifyingKey, SECP256k1
 from base58 import b58encode, BITCOIN_ALPHABET
+
+from cryptography.hazmat.primitives.asymmetric.ec import SECP256K1, derive_private_key
 
 from .key_validation import _is_public_key_compressed, _is_valid_private_key, _is_valid_public_key
 
@@ -44,15 +45,14 @@ def get_public_key(private_key: bytes, compressed: bool = True):
     assert _is_valid_private_key(private_key) == True, 'Invalid private key.'
     assert isinstance(compressed, bool) == True, 'The "compressed" argument must be either True or False.'
 
-    private_key_signing_key: SigningKey = SigningKey.from_string(
-        string=private_key,
-        curve=SECP256k1)
+    private_key_elliptic_curve = derive_private_key(
+        private_value=int.from_bytes(private_key, 'big'),
+        curve=SECP256K1())
     
-    public_key_verifying_key: VerifyingKey = private_key_signing_key.get_verifying_key()
-    public_key_hex = public_key_verifying_key.to_string().hex()
+    point = private_key_elliptic_curve.public_key().public_numbers()
     
-    x = public_key_hex[:64]
-    y = public_key_hex[64:]
+    x = point.x.to_bytes(32, 'big').hex()
+    y = point.y.to_bytes(32, 'big').hex()
 
     if compressed == True:
         prefix = '02' if int(y, 16) % 2 == 0 else '03'

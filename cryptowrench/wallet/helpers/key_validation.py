@@ -1,8 +1,6 @@
 import hashlib
 from base58 import b58decode
-from ecdsa.ecdsa import curve_secp256k1
-
-from .elliptic_math import _bip32_uncompress_elliptic_point
+from .elliptic_math import SECP256K1_Helpers, _bip32_uncompress_elliptic_point
 
 def _is_valid_private_key(private_key: bytes) -> bool:
     is_bytes = isinstance(private_key, bytes)
@@ -78,10 +76,7 @@ def _is_valid_public_key(public_key: bytes) -> bool:
         x = int.from_bytes(public_key[1:33], byteorder='big')
         y = int.from_bytes(public_key[33:], byteorder='big')
 
-    if curve_secp256k1.contains_point(x, y) == False:
-        return False # The public key does not lie on the SECP256k1 curve.
-
-    return True # If we got to this point, the public key is valid.
+    return SECP256K1_Helpers().contains_point(x, y)
 
 def _is_public_key_compressed(public_key: bytes) -> bool:
 

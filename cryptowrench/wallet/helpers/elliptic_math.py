@@ -1,7 +1,6 @@
-from ecdsa import SigningKey, SECP256k1
-from ecdsa.ecdsa import curve_secp256k1
+from cryptography.hazmat.primitives.asymmetric.ec import SECP256K1, derive_private_key, EllipticCurvePublicNumbers
 
-def _bip32_uncompress_elliptic_point(compressed_point: bytes):
+def _bip32_uncompress_elliptic_point(compressed_point: bytes) -> tuple[bytes, bytes]:
     assert len(compressed_point) == 33, 'Invalid compressed point.'
     first_byte = compressed_point[0].to_bytes(length=1, byteorder='big')
     assert first_byte == b'\x02' or first_byte == b'\x03', 'Invalid compressed point.'
@@ -25,9 +24,9 @@ def _bip32_uncompress_elliptic_point(compressed_point: bytes):
         return y_even if flag_is_y_even == True else y_odd
 
     # For SECP256k1, the parameters 'a', 'b' and 'p' are:
-    a = curve_secp256k1.a()
-    b = curve_secp256k1.b()
-    p = curve_secp256k1.p()
+    a = SECP256K1_Helpers.a
+    b = SECP256K1_Helpers.b
+    p = SECP256K1_Helpers.p
 
     x_int = int.from_bytes(x, byteorder='big')
     y_int = get_y(x_int, a, b, p, flag_is_y_even)
@@ -36,18 +35,19 @@ def _bip32_uncompress_elliptic_point(compressed_point: bytes):
 
     return (x, y)
 
-def _bip32_point(value_as_bytes):
+def _bip32_point(value_big_endian: bytes):
     # Returns the coordinate pair resulting from EC point multiplication
     # (repeated application of the EC group operation) of the secp256k1 base
     # point with the integer p.
-    a = SigningKey.from_string(
-        string=value_as_bytes,
-        curve=SECP256k1)
     
-    b = a.get_verifying_key().to_string()
-    
-    x = b[:32]
-    y = b[32:]
+    a = derive_private_key(
+        private_value=int.from_bytes(value_big_endian, 'big'),
+        curve=SECP256K1())
+
+    b = a.public_key().public_numbers()
+
+    x = b.x.to_bytes(32, 'big')
+    y = b.y.to_bytes(32, 'big')
 
     return (x, y)
 
@@ -67,3 +67,15 @@ def _bip32_serialize_point(P, return_compressed=True):
     else:
         return b'\x04' + x + y
 
+class SECP256K1_Helpers:
+    a     = 0x00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000000
+    b     = 0x00000000_00000000_00000000_00000000_00000000_00000000_00000000_00000007
+    p     = 0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFE_FFFFFC2F
+    order = 0xFFFFFFFF_FFFFFFFF_FFFFFFFF_FFFFFFFE_BAAEDCE6_AF48A03B_BFD25E8C_D0364141
+    n     = order
+    Gx    = 0x79BE667E_F9DCBBAC_55A06295_CE870B07_029BFCDB_2DCE28D9_59F2815B_16F81798
+    Gy    = 0x483ADA77_26A3C465_5DA4FBFC_0E1108A8_FD17B448_A6855419_9C47D08F_FB10D4B8
+    
+    def contains_point(self, x, y) -> bool:
+        """Is the point (x,y) on this curve?"""
+        return (y * y - ((x * x + self.a) * x + self.b)) % self.p == 0

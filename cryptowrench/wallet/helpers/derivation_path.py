@@ -1,12 +1,9 @@
 import hashlib, hmac
 from typing import Union
-from ecdsa import SECP256k1, ellipticcurve
-from ecdsa.ecdsa import curve_secp256k1
 
-from .elliptic_math import _bip32_point, _bip32_serialize_point, _bip32_uncompress_elliptic_point
-from .key_validation import _is_public_key_compressed, _is_valid_chain_code, _is_valid_private_key, _is_valid_public_key
-from .keys import _compress_public_key, get_public_key, ExtendedPrivateKey
-from .serialize import _serialize_extended_private_key, _serialize_extended_public_key
+from .elliptic_math import SECP256K1_Helpers, _bip32_point, _bip32_serialize_point
+from .key_validation import _is_valid_chain_code, _is_valid_private_key
+from .keys import get_public_key, ExtendedPrivateKey
 from .hashfuncs import get_hash160
 
 class DerivationPath():
@@ -142,8 +139,8 @@ def derive_wallet(derivation_path: DerivationPath, master_private_key: bytes, ma
     Public derivation is used at this level. 
     '''
     assert _is_valid_private_key(master_private_key) == True, 'Invalid private key.'
+    assert derivation_path.key_type == 'm', f"Unsuported key type: {derivation_path.key_type}. Please use 'm'."
     
-    key_type = derivation_path.key_type
     purpose = derivation_path.purpose
     coin_type = derivation_path.coin_type
     account = derivation_path.account
@@ -164,19 +161,7 @@ def derive_wallet(derivation_path: DerivationPath, master_private_key: bytes, ma
     change = _derivation_path_component_to_int(change)
     address_index = _derivation_path_component_to_int(address_index)
     
-    # 'm' is for private key, and 'M' is for public key.
-    if key_type == 'm':
-        key_depth_0 = master_private_key
-        derivation_function = ChildKeyDerivation_private
-    elif key_type == 'M':
-        key_depth_0 =  get_public_key(
-            private_key_as_bytes=master_private_key,
-            compressed=flag_compress_public_keys)
-        derivation_function = ChildKeyDerivation_public
-    else:
-        raise Exception(f"Unsuported key type: {key_type}. Please use either 'm' or 'M'.")
-    
-    current_key = key_depth_0
+    current_key = master_private_key # This is the starting key at depth 0.
     current_chain_code = master_chain_code
     index = 0
 
@@ -196,7 +181,7 @@ def derive_wallet(derivation_path: DerivationPath, master_private_key: bytes, ma
             last_key = current_key
             last_chain_code = current_chain_code
             index = next_index
-            current_key, current_chain_code = derivation_function(
+            current_key, current_chain_code = ChildKeyDerivation_private(
                 last_key,
                 parent_chain_code_as_bytes=last_chain_code,
                 i=index)
@@ -241,7 +226,7 @@ def ChildKeyDerivation_private(parent_private_key_as_bytes, parent_chain_code_as
     parent_private_key_as_int = int.from_bytes(
         parent_private_key_as_bytes,
         byteorder='big')
-    n = SECP256k1.order
+    n = SECP256K1_Helpers.order
     
     I_L_as_int = int.from_bytes(I_L, byteorder='big')
     child_private_key_as_int = (I_L_as_int + parent_private_key_as_int) % n
@@ -255,77 +240,6 @@ def ChildKeyDerivation_private(parent_private_key_as_bytes, parent_chain_code_as
         child_chain_code = I_R
 
         return child_private_key, child_chain_code
-
-def ChildKeyDerivation_public(parent_pubKey_as_bytes, parent_chain_code_as_bytes, i, return_compressed=True):
-    
-    assert _is_valid_public_key(parent_pubKey_as_bytes) == True, 'Invalid public key.'
-    if _is_public_key_compressed(parent_pubKey_as_bytes) == False:
-        parent_pubKey_as_bytes = _compress_public_key(
-            parent_pubKey_as_bytes)
-    assert _is_valid_chain_code(parent_chain_code_as_bytes) == True, 'Invalid chain code.'
-    i = _derivation_path_component_to_int(i)
-    assert isinstance(i, int) == True, 'Index \'i\' must be an integer, or an integer with an apostrophe at the end.'
-    assert i >= 0 and i <= 2**32-1, 'Index must be between 0 and 2^32-1.'
-
-    serialized_i = i.to_bytes(length=4, byteorder='big')
-    parent_public_key_coords = _bip32_uncompress_elliptic_point(
-        compressed_point_as_bytes=parent_pubKey_as_bytes)
-
-    if i >= 2**31:
-        # The specification does not allow for this case.
-        raise IndexError('Derived public key index must be i < 2^31')
-    else:
-        # The child key is NOT a hardened key (normal child).
-        data = parent_pubKey_as_bytes + serialized_i
-
-    I = hmac.new(
-        key=parent_chain_code_as_bytes,
-        msg=data,
-        digestmod=hashlib.sha512).digest()
-
-    I_L = I[:32]
-    I_R = I[32:]
-
-    parent_public_key_as_int = int.from_bytes(
-        bytes=parent_pubKey_as_bytes,
-        byteorder='big')
-    n = SECP256k1.order
-    
-    I_L_as_int = int.from_bytes(I_L, byteorder='big')
-    
-    if I_L_as_int >= n:
-        raise IndexError('The key derived from that index is invalid. Increase the index by 1.')
-    else:
-        elliptic_point_from_I_L_int = I_L_as_int * SECP256k1.generator
-        elliptic_point_from_parent_Key = ellipticcurve.Point(
-            curve=curve_secp256k1,
-            x=int.from_bytes(parent_public_key_coords[0], 'big'),
-            y=int.from_bytes(parent_public_key_coords[1], 'big'),
-            order=SECP256k1.order)
-        
-        # Check if the result is "the point at infinity".
-        # The point at infinity occurs when two points such as P1 and P2 (see
-        # below) are added.
-        # P1 = (x, y)
-        # P2 = (x, -y)
-
-        if elliptic_point_from_I_L_int.x() == elliptic_point_from_parent_Key.x():
-            if elliptic_point_from_I_L_int.y() == -elliptic_point_from_parent_Key.y():
-                raise IndexError('The key derived from that index is invalid. Increase the index by 1.')
-
-        public_key_elliptic_point = elliptic_point_from_I_L_int + elliptic_point_from_parent_Key
-
-        child_public_key_coords = (
-            public_key_elliptic_point.x().to_bytes(32, byteorder='big'),
-            public_key_elliptic_point.y().to_bytes(32, byteorder='big'))
-
-        child_public_key = _bip32_serialize_point(
-            P=child_public_key_coords,
-            return_compressed=return_compressed)
-        
-        child_chain_code = I_R
-
-        return child_public_key, child_chain_code
 
 def _derivation_path_component_to_int(component: Union[str, int, None]):
     if isinstance(component, str) == True:
