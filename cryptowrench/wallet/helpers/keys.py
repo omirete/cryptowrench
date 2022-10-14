@@ -1,10 +1,10 @@
 from __future__ import annotations
 import hmac, hashlib
-from base58 import b58encode, BITCOIN_ALPHABET
+from base58 import b58encode, b58decode, BITCOIN_ALPHABET
 
 from cryptography.hazmat.primitives.asymmetric.ec import SECP256K1, derive_private_key
 
-from .key_validation import _is_public_key_compressed, _is_valid_private_key, _is_valid_public_key
+from .key_validation import _is_public_key_compressed, _is_valid_private_key, _is_valid_public_key, _is_valid_wif
 
 class ExtendedPrivateKey():
     def __init__(self, private_key: bytes, chain_code: bytes, parent: ExtendedPrivateKey = None) -> None:
@@ -107,3 +107,32 @@ def get_wif_from_private_key(private_key: bytes, main_net: bool = True, generate
     wif = str(b58encode(wif_before_b58_encoding, alphabet=BITCOIN_ALPHABET), encoding='utf-8')
 
     return wif
+
+def get_private_key_from_wif(wif: str) -> tuple[bytes, bool, bool]:
+    """
+    If a valid wif is provided, it returns the following tuple:
+    (private_key, main_net, use_with_compressed_public_key)
+    """
+
+    assert _is_valid_wif(wif) == True, "Invalid wif."
+
+    main_net = True
+    compressed_pubkey = False
+    if wif[0] == "c" or  wif[0] == "9":
+        main_net = False
+    if wif[0] == "K" or wif[0] == "L":
+        compressed_pubkey = True
+    if wif[0] == "M": # For legacy Electrum wallets
+        compressed_pubkey = True
+    if wif[0] == "c": # For test net
+        compressed_pubkey = True
+    
+    wif_bytes = b58decode(wif, alphabet=BITCOIN_ALPHABET)
+    wif_bytes_no_checksum = wif_bytes[:-4]
+    wif_bytes_no_checksum_and_no_first_byte = wif_bytes_no_checksum[1:]
+    if compressed_pubkey == True:
+        private_key = wif_bytes_no_checksum_and_no_first_byte[:-1]
+    else:
+        private_key = wif_bytes_no_checksum_and_no_first_byte
+
+    return (private_key, compressed_pubkey, main_net)
