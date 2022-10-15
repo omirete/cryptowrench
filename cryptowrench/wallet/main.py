@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Union
 from mnemonic import Mnemonic
 
 from .helpers.key_validation import _is_valid_wif
@@ -11,12 +12,11 @@ class Wallet():
 
     def __reset_args(self):
         self._prefer_compressed_address = True
-        self.words = None
-        self.passphrase = ''
-        self.seed = None
-        self._master_private_key = None
+        self._words = None
+        self._passphrase = ''
+        self._seed = None
+        self.__set_private_key(None)
         self._master_chain_code = None
-
 
     def __validate_wallet_args(self, mnemonic: str = None, language: str = 'english', strength: int = 128, passphrase: str = '', private_key: bytes = None, chain_code: bytes = None, seed: bytes = None, main_net: bool = True, derivation_path: DerivationPath = None, fingerprint_parent_key: bytes = None, wif: str = None) -> None:
     
@@ -75,40 +75,48 @@ class Wallet():
 
     def from_seed(self, seed: bytes):
         self.__validate_wallet_args(seed=seed)
-        extended_private_key = get_private_key_and_chain_code_from_seed(seed)
         self.__reset_args()
-        self.seed = seed
-        self._master_private_key = extended_private_key.private_key
+        extended_private_key = get_private_key_and_chain_code_from_seed(seed)
+        self._seed = seed
+        self.__set_private_key(extended_private_key.private_key)
         self._master_chain_code  = extended_private_key.chain_code
 
-    def from_mnemonic(self, mnemonic: str, passphrase: str):
+    def from_mnemonic(self, mnemonic: str, passphrase: str = ''):
         self.__validate_wallet_args(mnemonic=mnemonic, passphrase=passphrase)
         if len(mnemonic.split(' ')) < 12:
             print('You are using less than 12 words to generate your wallet. This is considered unsafe and is not recommended.')
         seed = Mnemonic.to_seed(mnemonic, passphrase)
         self.__reset_args()
-        self.words = mnemonic
-        self.passphrase = passphrase
-        self.from_seed(seed)
+        self._words = mnemonic
+        self._passphrase = passphrase
+        extended_private_key = get_private_key_and_chain_code_from_seed(seed)
+        self._seed = seed
+        self.__set_private_key(extended_private_key.private_key)
+        self._master_chain_code  = extended_private_key.chain_code
 
     def from_wif(self, wif: str):
         (private_key, main_net, use_with_compressed_public_key) = get_private_key_from_wif(wif)
         self.__reset_args()
-        self._master_private_key = private_key
-        self.main_net = main_net
+        self.__set_private_key(private_key)
+        self._main_net = main_net
         self._prefer_compressed_address = use_with_compressed_public_key
 
-    def from_private_key_and_chain_code(self, private_key: bytes, chain_code: bytes):
+    def from_extended_private_key(self, private_key: bytes, chain_code: bytes):
         self.__validate_wallet_args(private_key=private_key,chain_code=chain_code)
         self.__reset_args()
-        self._master_private_key = private_key
+        self.__set_private_key(private_key)
         self._master_chain_code = chain_code
+    
+    def from_private_key(self, private_key: bytes):
+        self.__validate_wallet_args(private_key=private_key)
+        self.__reset_args()
+        self.__set_private_key(private_key)
 
     def __init__(self, mnemonic: str = None, language: str = 'english', strength: int = 128, passphrase: str = '', private_key: bytes = None, chain_code: bytes = None, seed: bytes = None, main_net: bool = True, derivation_path: DerivationPath = None, fingerprint_parent_key: bytes = None, wif: str = None) -> None:
         self.__reset_args()
-        self.main_net = main_net
-        self.derivation_path = derivation_path
-        self.fingerprint_parent_key = fingerprint_parent_key
+        self._main_net = main_net
+        self._derivation_path = derivation_path
+        self._fingerprint_parent_key = fingerprint_parent_key
 
         self.__validate_wallet_args(
             mnemonic=mnemonic,
@@ -127,7 +135,7 @@ class Wallet():
         elif seed != None:
             self.from_seed(seed=seed)
         elif private_key != None:
-            self.from_private_key_and_chain_code(private_key=private_key, chain_code=chain_code)
+            self.from_extended_private_key(private_key=private_key, chain_code=chain_code)
         elif wif != None:
             self.from_wif(wif)
         else:
@@ -135,16 +143,14 @@ class Wallet():
                 language=language,
                 strength=strength,
                 passphrase=passphrase)
-        
-        self._master_public_key = get_public_key(self._master_private_key, compressed=True)
-        self._master_uncompressed_public_key = get_public_key(self._master_private_key, compressed=False)
     
     def hd_wallet(self, path: str, compress_public_keys: bool = True) -> Wallet:
+        assert self.chain_code != None, 'You have not specified a chain code for your wallet. Together with the private key, the chain code completes the "extended private key" and is needed for the generation of child wallets.'
         derivation_path = DerivationPath(path)
         extended_private_key: ExtendedPrivateKey = derive_wallet(
             derivation_path=derivation_path,
-            master_private_key=self._master_private_key,
-            master_chain_code=self._master_chain_code,
+            master_private_key=self.private_key,
+            master_chain_code=self.chain_code,
             flag_compress_public_keys=compress_public_keys,
             main_net=self.main_net)
         
@@ -162,17 +168,54 @@ class Wallet():
             fingerprint_parent_key=fingerprint_parent_key)
     
     @property
-    def wif(self):
+    def private_key(self) -> bytes:
+        return self._master_private_key
+    
+    def __set_private_key(self, new_val: bytes):
+        self._master_private_key = new_val
+        if new_val != None:
+            self._master_public_key = get_public_key(new_val, compressed=True)
+            self._master_uncompressed_public_key = get_public_key(new_val, compressed=False)
+        else:
+            self._master_public_key = None
+            self._master_uncompressed_public_key = None
+    
+    @property
+    def chain_code(self) -> Union[bytes, None]:
+        return self._master_chain_code
+    
+    @property
+    def seed(self) -> Union[bytes, None]:
+        return self._seed
+    
+    @property
+    def words(self) -> Union[str, None]:
+        return self._words
+    
+    @property
+    def passphrase(self) -> str:
+        return self._passphrase
+
+    @property
+    def public_key(self) -> bytes:
+        return self._master_public_key
+    
+    @property
+    def public_key_uncompressed(self) -> bytes:
+        return self._master_uncompressed_public_key
+
+    @property
+    def wif(self) -> str:
         return get_wif_from_private_key(
-            private_key=self._master_private_key,
+            private_key=self.private_key,
             main_net=self.main_net,
             generate_compressed=True # CHECK
         )
 
     @property
-    def wif_uncompressed_key(self):
+    def wif_uncompressed_key(self) -> str:
         return get_wif_from_private_key(
-            private_key=self._master_private_key,
+            private_key=self.private_key,
             main_net=self.main_net,
             generate_compressed=False # CHECK
         )
@@ -180,20 +223,24 @@ class Wallet():
     @property
     def address(self):
         return AddressHandler(
-            public_key=self._master_public_key,
-            uncompressed_public_key=self._master_uncompressed_public_key,
+            public_key=self.public_key,
+            uncompressed_public_key=self.public_key_uncompressed,
             main_net=self.main_net
         )
     
     @property
+    def derivation_path(self):
+        return self._derivation_path
+
+    @property
     def serialized_extended_public_key(self):
-        if self.derivation_path != None and self._master_chain_code != None:
+        if self.derivation_path != None and self.chain_code != None:
             return _serialize_extended_public_key(
-                public_key=self._master_public_key,
-                chain_code=self._master_chain_code,
+                public_key=self.public_key,
+                chain_code=self.chain_code,
                 purpose=self.derivation_path.purpose,
                 depth=self.derivation_path.depth,
-                fingerprint_parent_key=self.fingerprint_parent_key,
+                fingerprint_parent_key=self._fingerprint_parent_key,
                 child_number=self.derivation_path.child_number,
                 main_net=self.main_net,
             )
@@ -202,31 +249,36 @@ class Wallet():
     
     @property
     def serialized_extended_private_key(self):
-        if self.derivation_path != None and self._master_chain_code != None:
+        if self.derivation_path != None and self.chain_code != None:
             return _serialize_extended_private_key(
-                private_key=self._master_private_key,
-                chain_code=self._master_chain_code,
+                private_key=self.private_key,
+                chain_code=self.chain_code,
                 purpose=self.derivation_path.purpose,
                 depth=self.derivation_path.depth,
-                fingerprint_parent_key=self.fingerprint_parent_key,
+                fingerprint_parent_key=self._fingerprint_parent_key,
                 child_number=self.derivation_path.child_number,
                 main_net=self.main_net,
             )
         else:
             return b'-'
     
-    def print_wallet_info(self):
-        lines = []
-        if self.seed != None:
-            lines.append('Seed:                               ' + self.seed.hex())
+    @property
+    def main_net(self) -> bool:
+        return self._main_net
 
-        lines.extend([
-            'Private key (raw hex):              ' + self._master_private_key.hex(),
+    @property
+    def test_net(self) -> bool:
+        return not self._main_net
+    
+    def print_wallet_info(self):
+        lines = [
+            'Seed:                               ' + self.seed.hex() if self.seed != None else '-',
+            'Private key (raw hex):              ' + self.private_key.hex(),
             'Private key (serialized):           ' + self.serialized_extended_private_key.decode('utf-8'),
-            'Public key (raw hex):               ' + self._master_public_key.hex(),
+            'Public key (raw hex):               ' + self.public_key.hex(),
             'Public key (serialized):            ' + self.serialized_extended_public_key.decode('utf-8'),
-            'Uncompressed pub. key (raw hex):    ' + self._master_uncompressed_public_key.hex(),
-            'Uncompressed pub. key (serialized): ' + self._master_public_key.hex(),
+            'Uncompressed pub. key (raw hex):    ' + self.public_key_uncompressed.hex(),
+            # 'Uncompressed pub. key (serialized): ' + ,
             'WIF:                                ' + self.wif,
             'WIF (uncompressed key):             ' + self.wif_uncompressed_key,
             'Address (P2PKH):                    ' + self.address.bitcoin.P2PKH,
@@ -234,5 +286,5 @@ class Wallet():
             'Address (P2SH):                     ' + self.address.bitcoin.P2SH,
             'Address (P2SH, uncompressed key):   ' + self.address.bitcoin.P2SH_uncompressed,
             'Address (Bech32):                   ' + self.address.bitcoin.P2WPKH_wit0,
-        ])
+        ]
         print('\n'.join(lines))
