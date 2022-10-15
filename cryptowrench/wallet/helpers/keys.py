@@ -114,7 +114,8 @@ def get_private_key_from_wif(wif: str) -> tuple[bytes, bool, bool]:
     (private_key, main_net, use_with_compressed_public_key)
     """
 
-    assert _is_valid_wif(wif) == True, "Invalid wif."
+    if _is_valid_wif(wif) == False:
+        raise ValueError("Invalid wif.")
 
     main_net = True
     compressed_pubkey = False
