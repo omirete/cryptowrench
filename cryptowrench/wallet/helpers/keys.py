@@ -1,7 +1,6 @@
 from __future__ import annotations
 import hmac, hashlib
 from base58 import b58encode, b58decode, BITCOIN_ALPHABET
-
 from cryptography.hazmat.primitives.asymmetric.ec import SECP256K1, derive_private_key
 
 from .key_validation import _is_public_key_compressed, _is_valid_private_key, _is_valid_public_key, _is_valid_wif
@@ -22,7 +21,7 @@ def get_private_key_and_chain_code_from_seed(seed) -> ExtendedPrivateKey:
     chain_code = hmac_result[32:]
     return ExtendedPrivateKey(priv_key, chain_code)
 
-def get_public_key(private_key: bytes, compressed: bool = True):
+def get_public_key(private_key: bytes, compressed: bool = True) -> bytes:
     # From: https://developer.bitcoin.org/devguide/wallets.html?highlight=public
     # Bitcoin Core uses several different identifier bytes to help programs
     # identify how keys should be used:
@@ -63,7 +62,7 @@ def get_public_key(private_key: bytes, compressed: bool = True):
 
     return bytes.fromhex(public_key_hex)
 
-def _compress_public_key(public_key_as_bytes):
+def _compress_public_key(public_key_as_bytes) -> bytes:
     assert _is_valid_public_key(public_key_as_bytes), 'Invalid public key'
     if _is_public_key_compressed(public_key_as_bytes) == True:
         return public_key_as_bytes
