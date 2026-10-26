@@ -1,20 +1,28 @@
-[tool.poetry]
+[project]
 name = "cryptowrench"
 version = "0.1.7"
 description = "A set of tools for nerding around with crypto."
-authors = ["Federico Giancarelli <hello@federicogiancarelli.com>"]
-license = "MIT"
+authors = [{ name = "Federico Giancarelli", email = "hello@federicogiancarelli.com" }]
+requires-python = ">=3.11,<4"
 readme = "README.md"
+license = "MIT"
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "mnemonic>=0.20,<0.21",
+    "base58>=2.1.1,<3",
+    "pycryptodome>=3.15.0,<4",
+    "cryptography>=37.0.4,<38",
+    "bech32>=1.2.0,<2",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-mnemonic = "^0.20"
-base58 = "^2.1.1"
-pycryptodome = "^3.15.0"
-cryptography = "^37.0.4"
-bech32 = "^1.2.0"
-
+[tool.uv.build-backend]
+module-root = ""
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["uv_build>=0.9.17,<0.10.0"]
+build-backend = "uv_build"
