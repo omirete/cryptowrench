@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Union
+from typing import Union, Optional
 from mnemonic import Mnemonic
 
 from .helpers.key_validation import _is_valid_wif
@@ -18,7 +18,7 @@ class Wallet():
         self.__set_private_key(None)
         self._master_chain_code = None
 
-    def __validate_wallet_args(self, mnemonic: str = None, language: str = 'english', strength: int = 128, passphrase: str = '', private_key: bytes = None, chain_code: bytes = None, seed: bytes = None, main_net: bool = True, derivation_path: DerivationPath = None, fingerprint_parent_key: bytes = None, wif: str = None) -> None:
+    def __validate_wallet_args(self, mnemonic: Optional[str] = None, language: str = 'english', strength: int = 128, passphrase: str = '', private_key: Optional[bytes] = None, chain_code: Optional[bytes] = None, seed: Optional[bytes] = None, main_net: bool = True, derivation_path: Optional[DerivationPath] = None, fingerprint_parent_key: Optional[bytes] = None, wif: Optional[str] = None) -> None:
     
         # Type validations -----------------------------------------------------
         if isinstance(mnemonic, str) == False and mnemonic != None:
