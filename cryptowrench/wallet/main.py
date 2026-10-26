@@ -67,6 +67,13 @@ class Wallet():
             print("You provided a wif. Since it only contains information about the private key (but not about the chain code), you won't be able to generate child wallets (or 'hierarchical deterministic wallets', as they are called).")
         # ----------------------------------------------------------------------
 
+        # Mnemonic validation --------------------------------------------------
+        if mnemonic != None:
+            lang = Mnemonic.detect_language(mnemonic)
+            assert Mnemonic(lang).check(mnemonic) == True, 'Chosen mnemonic is invalid.'
+        # ----------------------------------------------------------------------
+            
+
     def __init_from_scratch__(self, language: str, strength: int, passphrase: str):
         available_languages = ', '.join(Mnemonic.list_languages())
         assert language in Mnemonic.list_languages(), f'Language not available. Please use one of the following: {available_languages}'
