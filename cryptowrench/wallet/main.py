@@ -1,12 +1,14 @@
 from __future__ import annotations
 from typing import Union, Optional
 from mnemonic import Mnemonic
+from mnemonic.mnemonic import ConfigurationError
 
-from .helpers.key_validation import _is_valid_wif
+from .helpers.key_validation import _is_valid_private_key, _is_valid_wif
 from .helpers.adresses import AddressHandler
 from .helpers.derivation_path import derive_wallet, DerivationPath, get_fingerprint
 from .helpers.keys import get_private_key_from_wif, get_public_key, get_private_key_and_chain_code_from_seed, ExtendedPrivateKey, get_wif_from_private_key
 from .helpers.serialize import _serialize_extended_private_key, _serialize_extended_public_key
+
 
 class Wallet():
 
@@ -18,137 +20,260 @@ class Wallet():
         self.__set_private_key(None)
         self._master_chain_code = None
 
-    def __validate_wallet_args(self, mnemonic: Optional[str] = None, language: str = 'english', strength: int = 128, passphrase: str = '', private_key: Optional[bytes] = None, chain_code: Optional[bytes] = None, seed: Optional[bytes] = None, main_net: bool = True, derivation_path: Optional[DerivationPath] = None, fingerprint_parent_key: Optional[bytes] = None, wif: Optional[str] = None) -> None:
-    
-        # Type validations -----------------------------------------------------
-        if isinstance(mnemonic, str) == False and mnemonic != None:
-            raise TypeError("'mnemonic' should be a string of words separated by a space character.")
-        if isinstance(passphrase, str) == False and passphrase != None:
-            raise TypeError("'passphrase' must be a string.")
-        if isinstance(language, str) == False and language != None:
-            raise TypeError("'language' should be a string.")
-        if isinstance(wif, str) == False and wif != None:
-            raise TypeError("'wif' should be a string.")
-        if isinstance(seed, bytes) == False and seed != None:
-            raise TypeError("'seed' must be provided in bytes.")
-        if isinstance(private_key, bytes) == False and private_key != None:
-            raise TypeError("'private_key' must be provided in bytes.")
-        if isinstance(chain_code, bytes) == False and chain_code != None:
-            raise TypeError("'chain_code' must be provided in bytes.")
-        if isinstance(fingerprint_parent_key, bytes) == False and fingerprint_parent_key != None:
-            raise TypeError("'fingerprint_parent_key' must be provided in bytes.")
-        if isinstance(main_net, bool) == False and chain_code != None:
-            raise TypeError("'main_net' must be either True or False.")
-        if isinstance(derivation_path, DerivationPath) == False and derivation_path != None:
-            raise TypeError("'derivation_path' must be a 'DerivationPath' object.")
-        if isinstance(strength, int) == False and strength != None:
-            raise TypeError("'strength' must be an int.")
-        # ----------------------------------------------------------------------
+    @staticmethod
+    def __validate_argument_types(*, required=(), **arguments):
+        """Check supplied types; direct imports name the arguments that cannot be None."""
+        argument_types = {
+            'entropy': bytes,
+            'mnemonic': str,
+            'seed': bytes,
+            'private_key': bytes,
+            'wif': str,
+            'chain_code': bytes,
+            'strength': int,
+            'derivation_path': DerivationPath,
+            'fingerprint_parent_key': bytes,
+            'language': str,
+            'passphrase': str,
+            'main_net': bool,
+        }
+        for name, value in arguments.items():
+            if value is None and name not in required:
+                continue
+            expected = argument_types[name]
+            if not isinstance(value, expected) or (name == 'strength' and isinstance(value, bool)):
+                raise TypeError(f"'{name}' must be {expected.__name__}.")
 
-        # Logical validations --------------------------------------------------
-
-        # As defined in BIP39, the entropy must be a multiple of 32 bits, and its size must be between 128 and 256 bits.
-        # Therefore the possible values for `strength` are 128, 160, 192, 224 and 256.
-        if strength not in [128, 160, 192, 224, 256]:
-            raise ValueError("Invalid strength value. Allowed values are [128, 160, 192, 224, 256].")
-        
-        if chain_code != None and private_key == None:
-            raise Exception("If you provide a chain_code for an extended key, you need to provide a private key as well.")
-        
-        if (mnemonic != None) + (seed != None) + (private_key != None) + (wif != None) > 1:
-            raise Exception("You can create a wallet by using one (and only one) of the following methods: with a mnemonic phrase, a seed, a private key/extended private key or a wif. These four methods are mutually exclusive, so please use only one of them.")
-
-        if wif != None and _is_valid_wif(wif) == False:
+    @staticmethod
+    def __validate_argument_values(**arguments):
+        """Check individual values only, without mode rules, notices or state changes."""
+        # As defined in BIP39, the entropy must be a multiple of 32 bits (4
+        # bytes), and its size must be between 128 and 256 bits (16 and 32
+        # bytes).
+        entropy = arguments.get('entropy')
+        if entropy is not None and len(entropy) not in (16, 20, 24, 28, 32):
+            raise ValueError("'entropy' must contain 16, 20, 24, 28 or 32 bytes.")
+        # Because of the restrictions on entropy, the possible values for
+        # `strength` are 128, 160, 192, 224 and 256 bits.
+        strength = arguments.get('strength')
+        if strength is not None and strength not in (128, 160, 192, 224, 256):
+            raise ValueError('Invalid strength value. Allowed values are [128, 160, 192, 224, 256].')
+        language = arguments.get('language')
+        if language is not None and language not in Mnemonic.list_languages():
+            raise ValueError('Unsupported mnemonic language: ' + language)
+        fingerprint = arguments.get('fingerprint_parent_key')
+        if fingerprint is not None and len(fingerprint) != 4:
+            raise ValueError("'fingerprint_parent_key' must contain exactly four bytes.")
+        private_key = arguments.get('private_key')
+        if private_key is not None and not _is_valid_private_key(private_key):
+            raise ValueError("'private_key' must contain 32 bytes encoding a scalar from 1 up to, but excluding, the secp256k1 order.")
+        wif = arguments.get('wif')
+        if wif is not None and not _is_valid_wif(wif):
             raise ValueError("'wif' is invalid.")
-        
-        if private_key != None and chain_code == None:
-            print("You provided a private key without specifying a chain code. You won't be able to generate child wallets (or 'hierarchical deterministic wallets', as they are called).")
-        if wif != None:
-            print("You provided a wif. Since it only contains information about the private key (but not about the chain code), you won't be able to generate child wallets (or 'hierarchical deterministic wallets', as they are called).")
-        # ----------------------------------------------------------------------
-
-        # Mnemonic validation --------------------------------------------------
-        if mnemonic != None:
-            lang = Mnemonic.detect_language(mnemonic)
-            assert Mnemonic(lang).check(mnemonic) == True, 'Chosen mnemonic is invalid.'
-        # ----------------------------------------------------------------------
-            
+        mnemonic = arguments.get('mnemonic')
+        if mnemonic is not None:
+            # Entropy-generated words must use their selected wordlist.
+            # Imported words have no language argument, so detect their
+            # language instead.
+            if language is None:
+                try:
+                    language = Mnemonic.detect_language(mnemonic)
+                except ConfigurationError as error:
+                    raise ValueError('Chosen mnemonic is invalid.') from error
+            if not Mnemonic(language).check(mnemonic):
+                raise ValueError('Chosen mnemonic is invalid.')
 
     def __init_from_scratch__(self, language: str, strength: int, passphrase: str):
-        available_languages = ', '.join(Mnemonic.list_languages())
-        assert language in Mnemonic.list_languages(), f'Language not available. Please use one of the following: {available_languages}'
+        self.__validate_argument_values(language=language, strength=strength)
         words = Mnemonic(language).generate(strength)
-        self.from_mnemonic(mnemonic=words, passphrase=passphrase)
+        self.__from_validated_mnemonic(words, passphrase)
 
     def from_seed(self, seed: bytes):
-        self.__validate_wallet_args(seed=seed)
-        self.__reset_args()
+        self.__validate_argument_types(required=('seed',), seed=seed)
+        self.__validate_argument_values(seed=seed)
         extended_private_key = get_private_key_and_chain_code_from_seed(seed)
+        self.__validate_argument_values(private_key=extended_private_key.private_key)
+        self.__reset_args()
         self._seed = seed
         self.__set_private_key(extended_private_key.private_key)
         self._master_chain_code  = extended_private_key.chain_code
 
     def from_mnemonic(self, mnemonic: str, passphrase: str = ''):
-        self.__validate_wallet_args(mnemonic=mnemonic, passphrase=passphrase)
-        if len(mnemonic.split(' ')) < 12:
+        self.__validate_argument_types(
+            required=('mnemonic', 'passphrase'), mnemonic=mnemonic, passphrase=passphrase)
+        self.__validate_argument_values(mnemonic=mnemonic)
+        # Split on Unicode whitespace, including the ideographic space used
+        # between Japanese mnemonic words; split(' ') only handles ASCII spaces.
+        if len(mnemonic.split()) < 12:
             print('You are using less than 12 words to generate your wallet. This is considered unsafe and is not recommended.')
+        self.__from_validated_mnemonic(mnemonic, passphrase)
+
+    def __from_validated_mnemonic(self, mnemonic: str, passphrase: str):
         seed = Mnemonic.to_seed(mnemonic, passphrase)
+        extended_private_key = get_private_key_and_chain_code_from_seed(seed)
+        self.__validate_argument_values(private_key=extended_private_key.private_key)
         self.__reset_args()
         self._words = mnemonic
         self._passphrase = passphrase
-        extended_private_key = get_private_key_and_chain_code_from_seed(seed)
         self._seed = seed
         self.__set_private_key(extended_private_key.private_key)
         self._master_chain_code  = extended_private_key.chain_code
 
+    def from_entropy(self, entropy: bytes, passphrase: str = '', language: str = 'english'):
+        """Replace this wallet from 128-256 bits of raw BIP39 entropy bytes.
+
+        Entropy must contain 16, 20, 24, 28 or 32 bytes. The optional
+        passphrase is used in seed derivation.
+        """
+        self.__validate_argument_types(
+            required=('entropy', 'passphrase', 'language'),
+            entropy=entropy, passphrase=passphrase, language=language)
+        self.__validate_argument_values(entropy=entropy, language=language)
+        mnemo = Mnemonic(language)
+        words = mnemo.to_mnemonic(entropy)
+        self.__validate_argument_values(mnemonic=words, language=language)
+        self.__from_validated_mnemonic(words, passphrase)
+
     def from_wif(self, wif: str):
-        (private_key, main_net, use_with_compressed_public_key) = get_private_key_from_wif(wif)
+        self.__validate_argument_types(required=('wif',), wif=wif)
+        self.__validate_argument_values(wif=wif)
+        (private_key, use_with_compressed_public_key, main_net) = get_private_key_from_wif(wif)
+        self.__validate_argument_values(private_key=private_key)
+        print("You provided a wif. Since it only contains information about the private key (but not about the chain code), you won't be able to generate child wallets (or 'hierarchical deterministic wallets', as they are called).")
         self.__reset_args()
         self.__set_private_key(private_key)
         self._main_net = main_net
         self._prefer_compressed_address = use_with_compressed_public_key
 
     def from_extended_private_key(self, private_key: bytes, chain_code: bytes):
-        self.__validate_wallet_args(private_key=private_key,chain_code=chain_code)
+        self.__validate_argument_types(
+            required=('private_key', 'chain_code'), private_key=private_key, chain_code=chain_code)
+        self.__validate_argument_values(private_key=private_key, chain_code=chain_code)
         self.__reset_args()
         self.__set_private_key(private_key)
         self._master_chain_code = chain_code
     
     def from_private_key(self, private_key: bytes):
-        self.__validate_wallet_args(private_key=private_key)
+        self.__validate_argument_types(required=('private_key',), private_key=private_key)
+        self.__validate_argument_values(private_key=private_key)
+        print("You provided a private key without specifying a chain code. You won't be able to generate child wallets (or 'hierarchical deterministic wallets', as they are called).")
         self.__reset_args()
         self.__set_private_key(private_key)
 
-    def __init__(self, mnemonic: str = None, language: str = 'english', strength: int = 128, passphrase: str = '', private_key: bytes = None, chain_code: bytes = None, seed: bytes = None, main_net: bool = True, derivation_path: DerivationPath = None, fingerprint_parent_key: bytes = None, wif: str = None) -> None:
+    @staticmethod
+    def __determine_initialization_mode(**sources):
+        """Select one supplied source, or random generation when all are None."""
+        supplied = [name for name, value in sources.items() if value is not None]
+        if len(supplied) > 1:
+            raise ValueError('Wallet sources are mutually exclusive: ' + ', '.join(supplied))
+        return supplied[0] if supplied else 'random'
+
+    @staticmethod
+    def __reject_unsupported_options(mode, allowed, **options):
+        for name, value in options.items():
+            if value is not None and name not in allowed:
+                raise ValueError(f"'{mode}' and '{name}' cannot be supplied together.")
+
+    def __validate_random_options(self, **options):
+        self.__reject_unsupported_options(
+            'random', {'strength', 'language', 'passphrase', 'main_net'}, **options)
+
+    def __validate_entropy_options(self, **options):
+        self.__reject_unsupported_options(
+            'entropy', {'language', 'passphrase', 'main_net'}, **options)
+
+    def __validate_mnemonic_options(self, **options):
+        self.__reject_unsupported_options('mnemonic', {'passphrase', 'main_net'}, **options)
+
+    def __validate_seed_options(self, **options):
+        self.__reject_unsupported_options('seed', {'main_net'}, **options)
+
+    def __validate_private_key_options(self, **options):
+        self.__reject_unsupported_options(
+            'private_key', {'chain_code', 'main_net', 'derivation_path', 'fingerprint_parent_key'}, **options)
+        path = options['derivation_path']
+        fingerprint = options['fingerprint_parent_key']
+        if path is not None or fingerprint is not None:
+            if options['chain_code'] is None:
+                raise ValueError("'derivation_path' and 'fingerprint_parent_key' require 'chain_code'.")
+            if path is None or fingerprint is None:
+                raise ValueError("'derivation_path' and 'fingerprint_parent_key' must be supplied together.")
+
+    def __validate_wif_options(self, **options):
+        self.__reject_unsupported_options('wif', set(), **options)
+
+    def __validate_initialization_options(self, mode, **options):
+        """Dispatch combination checks; each mode owns its compatibility rules."""
+        validators = {
+            'random': self.__validate_random_options,
+            'entropy': self.__validate_entropy_options,
+            'mnemonic': self.__validate_mnemonic_options,
+            'seed': self.__validate_seed_options,
+            'private_key': self.__validate_private_key_options,
+            'wif': self.__validate_wif_options,
+        }
+        validators[mode](**options)
+
+    def __init__(self, mnemonic: str = None, language: Optional[str] = None, strength: Optional[int] = None, passphrase: Optional[str] = None, private_key: bytes = None, chain_code: bytes = None, seed: bytes = None, main_net: Optional[bool] = None, derivation_path: DerivationPath = None, fingerprint_parent_key: bytes = None, wif: str = None, entropy: Optional[bytes] = None) -> None:
+        arguments = dict(
+            entropy=entropy,
+            mnemonic=mnemonic,
+            seed=seed,
+            private_key=private_key,
+            wif=wif,
+            chain_code=chain_code,
+            strength=strength,
+            language=language,
+            passphrase=passphrase,
+            main_net=main_net,
+            derivation_path=derivation_path,
+            fingerprint_parent_key=fingerprint_parent_key)
+        self.__validate_argument_types(**arguments)
+        mode = self.__determine_initialization_mode(
+            entropy=entropy,
+            mnemonic=mnemonic,
+            seed=seed,
+            private_key=private_key,
+            wif=wif)
+        self.__validate_initialization_options(
+            mode,
+            strength=strength,
+            language=language,
+            passphrase=passphrase,
+            main_net=main_net,
+            chain_code=chain_code,
+            derivation_path=derivation_path,
+            fingerprint_parent_key=fingerprint_parent_key)
+
+        language = 'english' if language is None else language
+        passphrase = '' if passphrase is None else passphrase
+        main_net = True if main_net is None else main_net
+        # Keep imported mnemonic validation free of a resolved generation language.
+        self.__validate_argument_values(**arguments)
+
         self.__reset_args()
         self._main_net = main_net
         self._derivation_path = derivation_path
         self._fingerprint_parent_key = fingerprint_parent_key
-
-        self.__validate_wallet_args(
-            mnemonic=mnemonic,
-            language=language,
-            strength=strength,
-            passphrase=passphrase,
-            private_key=private_key,
-            chain_code=chain_code,
-            seed=seed,
-            main_net=main_net,
-            derivation_path=derivation_path,
-            fingerprint_parent_key=fingerprint_parent_key)
         
-        if mnemonic != None:
+        if mode == 'mnemonic':
             self.from_mnemonic(mnemonic=mnemonic, passphrase=passphrase)
-        elif seed != None:
+        elif mode == 'entropy':
+            self.from_entropy(entropy, passphrase=passphrase, language=language)
+        elif mode == 'seed':
             self.from_seed(seed=seed)
-        elif private_key != None:
-            self.from_extended_private_key(private_key=private_key, chain_code=chain_code)
-        elif wif != None:
+        elif mode == 'private_key':
+            if chain_code is None:
+                self.from_private_key(private_key)
+            else:
+                self.from_extended_private_key(private_key=private_key, chain_code=chain_code)
+        elif mode == 'wif':
             self.from_wif(wif)
         else:
             self.__init_from_scratch__(
                 language=language,
-                strength=strength,
+                # None means no strength was supplied; random generation defaults to 128 bits.
+                strength=128 if strength is None else strength,
                 passphrase=passphrase)
     
     def hd_wallet(self, path: str, compress_public_keys: bool = True) -> Wallet:

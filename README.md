@@ -10,9 +10,10 @@ pip -m install cryptowrench
 Feel free to use it for your own projects.
 
 ## 📖 Examples
-* [Create a new wallet](https://github.com/omirete/cryptowrench#create-a-new-wallet)
-* [Import an existing wallet (from mnemonic words)](https://github.com/omirete/cryptowrench#import-an-existing-wallet-from-mnemonic-words)
-* [Import an existing wallet (from seed)](https://github.com/omirete/cryptowrench#import-an-existing-wallet-from-seed)
+* [Create a new wallet](#create-a-new-wallet)
+* [Import an existing wallet (from mnemonic words)](#import-an-existing-wallet-from-mnemonic-words)
+* [Create a wallet from entropy](#create-a-wallet-from-entropy)
+* [Import an existing wallet (from seed)](#import-an-existing-wallet-from-seed)
 
 ### Create a new wallet
 ```python
@@ -91,6 +92,30 @@ child_wallet = root_wallet.hd_wallet("m/44'/60'/0'/0/0")
 print(f"Ethereum: {child_wallet.address.ethereum}")
 ```
 
+### Create a wallet from entropy
+
+```python
+from cryptowrench.wallet import Wallet
+
+# Public test entropy, for demonstration only. Never send funds to this wallet.
+entropy = bytes.fromhex('00000000000000000000000000000000')
+master_wallet = Wallet(
+    entropy=entropy,
+    passphrase='My_P4$$phrase',
+    language='english')
+
+print(master_wallet.words)
+# abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
+
+child_wallet = master_wallet.hd_wallet("m/84'/0'/0'/0/0")
+print(child_wallet.serialized_extended_public_key)
+# b'zpub6vgLkXzKPJKREftSon6FqywPeMhN9HybFPuothTnaUxDXvdFkaux55mYN6YDFRTnhs2EWFy5foonj3oPdNqEQ87Ea2sgfdvQAsctyaAdyLr'
+```
+
+Entropy must be raw `bytes` of length 16, 20, 24, 28 or 32 (128, 160, 192, 224 or 256 bits). Convert hexadecimal text with `bytes.fromhex(...)` before passing it in. All byte values and leading zeros are preserved. Entropy length determines the number of mnemonic words, so supplying both `entropy` and `strength` raises `ValueError`.
+
+Entropy is converted into BIP39 mnemonic words, then the words and optional passphrase derive the seed. Different passphrases produce different wallets; recovery requires the same passphrase. Unicode normalization follows BIP39. `Wallet(seed=...)` instead accepts seed bytes directly and skips mnemonic and passphrase processing.
+
 ### Import an existing wallet (from seed)
 ```python
 from cryptowrench.wallet import Wallet
@@ -108,6 +133,23 @@ root_wallet = Wallet(seed=seed)
 child_wallet = root_wallet.hd_wallet("m/44'/60'/0'/0/0")
 print(f"Ethereum:  {child_wallet.address.ethereum}")
 ```
+
+## 🔧 Compatible wallet arguments
+
+Options that do not apply to the selected source raise `ValueError`.
+
+| Source | Allowed options |
+| --- | --- |
+| None (random creation) | `strength`, `language`, `passphrase`, `main_net` |
+| `entropy` | `language`, `passphrase`, `main_net` |
+| `mnemonic` | `passphrase`, `main_net`; language is detected from the words |
+| `seed` | `main_net` |
+| `private_key` | `chain_code`, `main_net` |
+| `wif` | None; WIF determines the network |
+
+Supply arguments from only one source. Omitted arguments use the defaults when needed: English, empty passphrase, mainnet, and 128-bit random generation.
+
+`derivation_path` and `fingerprint_parent_key` must be supplied together, alongside an explicit `private_key` and `chain_code`. They describe serialization metadata for an existing extended key; they do not derive a child wallet. The fingerprint must contain four bytes.
 
 ## ⚠ Disclaimer
 Although I try my best to make these tools as correct and reliable as possible, `please for the love of dinosaurs` do not rely on them for storing your money. Use a proper wallet for that instead (see: [ethereum.org/en/wallets/](https://ethereum.org/en/wallets) for some fully featured ones).
