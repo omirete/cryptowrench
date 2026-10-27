@@ -151,10 +151,35 @@ Supply arguments from only one source. Omitted arguments use the defaults when n
 
 `derivation_path` and `fingerprint_parent_key` must be supplied together, alongside an explicit `private_key` and `chain_code`. They describe serialization metadata for an existing extended key; they do not derive a child wallet. The fingerprint must contain four bytes.
 
+## 🔬 Testing
+
+The test suite uses pytest and covers wallet creation and imports, key validation, Ethereum checksums, and HD derivation. BIP32 and BIP39 checks use published test vectors.
+
+From the repository root, install the development dependencies and run the suite with [uv](https://docs.astral.sh/uv/):
+
+```sh
+uv sync --group dev
+uv run pytest
+```
+
+Tests are grouped into two categories:
+
+- **Unit tests** (`tests/unit/`) check private-key validation and Ethereum checksums.
+- **Integration tests** (`tests/integration/`) check wallet creation, imports, and HD derivation.
+
+Run a category, a specific file, or a single test:
+
+```sh
+uv run pytest -m unit
+uv run pytest -m integration
+uv run pytest tests/integration/test_entropy.py
+uv run pytest tests/integration/test_entropy.py::test_empty_passphrase_matches_default -v
+```
+
 ## ⚠ Disclaimer
 Although I try my best to make these tools as correct and reliable as possible, `please for the love of dinosaurs` do not rely on them for storing your money. Use a proper wallet for that instead (see: [ethereum.org/en/wallets/](https://ethereum.org/en/wallets) for some fully featured ones).
 
-That said, this library has been tested against publicly available test vectors (i.e. from [bip32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#Test_Vectors) and [bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#Test_vectors), among others), which means that it should be mostly correct for those functionalities. Expect more tests to be added in the future, and see [`run_tests.py`](https://github.com/omirete/cryptowrench/blob/master/run_tests.py) if you would like to run these tests yourself.
+That said, this library has been tested against publicly available test vectors (i.e. from [bip32](https://github.com/bitcoin/bips/blob/master/bip-0032.mediawiki#Test_Vectors) and [bip39](https://github.com/bitcoin/bips/blob/master/bip-0039.mediawiki#Test_vectors), among others), which means that it should be mostly correct for those functionalities. Expect more tests to be added in the future, and see [Testing](#testing) to run the suite yourself.
 
 ## 🤝 Colaborate :)
 Please create issues/pull requests/feature requests where needed. I'm also looking to collaborate in other open source projects, so let me know if you would like to talk!

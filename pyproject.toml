@@ -20,6 +20,17 @@ dependencies = [
     "bech32>=1.2.0,<2",
 ]
 
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib --strict-markers"
+markers = [
+    "unit: isolated helper validation and checksum checks",
+    "integration: wallet construction, imports, and derivation checks",
+]
+
 [tool.uv.build-backend]
 module-root = ""
 
