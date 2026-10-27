@@ -110,7 +110,7 @@ def get_wif_from_private_key(private_key: bytes, main_net: bool = True, generate
 def get_private_key_from_wif(wif: str) -> tuple[bytes, bool, bool]:
     """
     If a valid wif is provided, it returns the following tuple:
-    (private_key, main_net, use_with_compressed_public_key)
+    (private_key, use_with_compressed_public_key, main_net)
     """
 
     if _is_valid_wif(wif) == False:
