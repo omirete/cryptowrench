@@ -3,11 +3,9 @@ from base58 import b58decode
 from .elliptic_math import SECP256K1_Helpers, _bip32_uncompress_elliptic_point
 
 def _is_valid_private_key(private_key: bytes) -> bool:
-    is_bytes = isinstance(private_key, bytes)
-    length = len(private_key)
-    if is_bytes == True and length == 32:
-        return True
-    return False
+    if not isinstance(private_key, bytes) or len(private_key) != 32:
+        return False
+    return 1 <= int.from_bytes(private_key, 'big') < SECP256K1_Helpers.order
 
 def _is_valid_wif(wif: str) -> bool:
     if isinstance(wif, str) == False:
