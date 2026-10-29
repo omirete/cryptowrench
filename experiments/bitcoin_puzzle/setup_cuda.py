@@ -1,6 +1,6 @@
 """Install project-local official CUDA components and fetch pinned BitCrack sources.
 
-Run from the repo: uv run python -m bitcoin_puzzle.setup_cuda
+Run from the repo: uv run python -m experiments.bitcoin_puzzle.setup_cuda
 Downloads stay in .local; no drivers, registry settings, or global PATH are changed.
 """
 

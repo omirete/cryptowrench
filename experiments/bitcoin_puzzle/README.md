@@ -6,13 +6,13 @@ Repository-only experiments. This folder is excluded from the published Cryptowr
 
 On Windows with Visual Studio 2022 C++ tools and an NVIDIA GPU with compute capability 8.9 or newer:
 
-```sh uv run python -m bitcoin_puzzle.setup_cuda ```
+```sh uv run python -m experiments.bitcoin_puzzle.setup_cuda ```
 
-This downloads checksum-verified official NVIDIA CUDA 12.8.1 redistributable components (nvcc 12.8.93, cudart/CCCL 12.8.90) and pinned BitCrack sources, then builds an optimized `sm_89` executable. Downloads, toolkit, sources, build output, manifest, and device settings stay inside ignored `bitcoin_puzzle/.local/`. No driver installation, global PATH changes, or administrator setup is needed. The script needs network access on its first run; scans and benchmarks stay offline.
+This downloads checksum-verified official NVIDIA CUDA 12.8.1 redistributable components (nvcc 12.8.93, cudart/CCCL 12.8.90) and pinned BitCrack sources, then builds an optimized `sm_89` executable. Downloads, toolkit, sources, build output, manifest, and device settings stay inside ignored `experiments/bitcoin_puzzle/.local/`. No driver installation, global PATH changes, or administrator setup is needed. The script needs network access on its first run; scans and benchmarks stay offline.
 
 `--backend auto` is the default: use the built CUDA worker when a compatible device is available, otherwise print the reason and use CPU. Choose explicitly:
 
-```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --limit 1000000000 --backend cuda --device 0 uv run python -m bitcoin_puzzle benchmark --puzzle 71 --backend cpu --seconds 5 ```
+```sh uv run python -m experiments.bitcoin_puzzle scan --puzzle 71 --limit 1000000000 --backend cuda --device 0 uv run python -m experiments.bitcoin_puzzle benchmark --puzzle 71 --backend cpu --seconds 5 ```
 
 Explicit `--backend cuda` fails if CUDA is unavailable. A failure after a GPU scan begins is always an error, never an automatic CPU retry or a search miss. Other platforms can use `--backend cpu`; this build script targets Windows/MSVC.
 
@@ -20,11 +20,11 @@ Explicit `--backend cuda` fails if CUDA is unavailable. A failure after a GPU sc
 
 Puzzle #1's public solution is scalar `1`. Never send funds to public test keys.
 
-```sh uv run python -m bitcoin_puzzle scan --puzzle 1 --limit 1 ```
+```sh uv run python -m experiments.bitcoin_puzzle scan --puzzle 1 --limit 1 ```
 
 ## Measure this computer
 
-```sh uv run python -m bitcoin_puzzle benchmark --puzzle 71 uv run python -m bitcoin_puzzle benchmark --puzzle 140 --seconds 2 uv run python -m bitcoin_puzzle benchmark --puzzle 71 --backend cuda --tune --seconds 30 ```
+```sh uv run python -m experiments.bitcoin_puzzle benchmark --puzzle 71 uv run python -m experiments.bitcoin_puzzle benchmark --puzzle 140 --seconds 2 uv run python -m experiments.bitcoin_puzzle benchmark --puzzle 71 --backend cuda --tune --seconds 30 ```
 
 Sequential benchmarks run for ten seconds by default over the selected interval, using the same search path as the scanner. GPU initialization is reported separately from steady-state time; end-to-end time and throughput include initialization. The CPU reference measures its existing loop directly. A duration is checked between candidates on CPU and synchronized batches on CUDA, so a run can exceed the requested duration by that unit of work. It stops early if a match is found.
 
@@ -38,11 +38,11 @@ It reports throughput, estimated full-range and halfway search times, and the fr
 
 To scan without a candidate limit, omit `--limit`:
 
-```sh uv run python -m bitcoin_puzzle scan --puzzle 71 uv run python -m bitcoin_puzzle scan --puzzle 71 --order random ```
+```sh uv run python -m experiments.bitcoin_puzzle scan --puzzle 71 uv run python -m experiments.bitcoin_puzzle scan --puzzle 71 --order random ```
 
 Both stop on a match, exhaustion of the selected range, or Ctrl+C. To cap a run:
 
-```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --limit 10000 ```
+```sh uv run python -m experiments.bitcoin_puzzle scan --puzzle 71 --limit 10000 ```
 
 Both commands require `--puzzle N`, with numbers 1–160 supported. The address comes from the bundled catalog; inclusive bounds are derived as `2**(N-1)` through `2**N - 1`. The program prints the resolved number, address, and selected interval before scanning. It uses compressed public keys for every puzzle, including those whose public keys have been revealed; there is no kangaroo solver.
 
@@ -50,7 +50,7 @@ The `--limit` argument is optional. Omit it to search the entire remaining selec
 
 Progress appears about once a second. On completion or Ctrl+C, the tool reports the next untested scalar. Resume using that value, for example:
 
-```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --start 0x400000000000002710 --limit 10000 ```
+```sh uv run python -m experiments.bitcoin_puzzle scan --puzzle 71 --start 0x400000000000002710 --limit 10000 ```
 
 That example assumes the previous run checked exactly 10,000 candidates from the default start. Always use your own reported value. Overrides must stay inside the selected puzzle's interval. CPU interruptions retry an incomplete candidate; CUDA interruptions replay any unacknowledged batch from the last confirmed position. The native process is stopped and joined before returning. There are no sequential-search checkpoint files. Ctrl+C returns exit code 130. Match, limit, duration, and exhausted-range outcomes return 0; invalid input returns 2; CUDA errors return 1.
 
@@ -62,7 +62,7 @@ Every GPU match is independently checked against its confirmed interval, target 
 
 Sequential order remains the default. To visit chunks of the puzzle's range in a reproducible pseudorandom order:
 
-```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --order random --limit 1000000000 ```
+```sh uv run python -m experiments.bitcoin_puzzle scan --puzzle 71 --order random --limit 1000000000 ```
 
 Chunks do not overlap; keys inside each chunk are checked sequentially using the selected CPU or CUDA backend. The default chunk size is `2**34` (17,179,869,184 keys), amortizing GPU point initialization over a long scan. An optional `--limit` counts candidate keys in this invocation, across all chunks, and can stop partway through a chunk. Without it, the saved traversal continues until a match, exhaustion, or Ctrl+C.
 
@@ -70,13 +70,13 @@ The first run generates and prints a random 256-bit seed. An eight-round keyed B
 
 ### Saved searches
 
-Random scans automatically save to `bitcoin_puzzle/.local/searches/puzzle-N-random.json`. Repeat the command to continue the same search. Omit `--limit` to finish the remaining traversal, or supply a positive value to cap that invocation. Backend choice and CUDA launch settings can change between runs. The saved bounds, seed, and chunk size are restored when their flags are omitted.
+Random scans automatically save to `experiments/bitcoin_puzzle/.local/searches/puzzle-N-random.json`. Repeat the command to continue the same search. Omit `--limit` to finish the remaining traversal, or supply a positive value to cap that invocation. Backend choice and CUDA launch settings can change between runs. The saved bounds, seed, and chunk size are restored when their flags are omitted.
 
-```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --order random --limit 1000000000 ```
+```sh uv run python -m experiments.bitcoin_puzzle scan --puzzle 71 --order random --limit 1000000000 ```
 
 To create a separate search with an explicit hexadecimal seed and a smaller decimal chunk size, use a different checkpoint:
 
-```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --order random --seed 2a --chunk-size 4294967296 --checkpoint bitcoin_puzzle/.local/searches/puzzle-71-small.json --limit 1000000000 ```
+```sh uv run python -m experiments.bitcoin_puzzle scan --puzzle 71 --order random --seed 2a --chunk-size 4294967296 --checkpoint experiments/bitcoin_puzzle/.local/searches/puzzle-71-small.json --limit 1000000000 ```
 
 `--start` and `--end` define the original selected interval. They are not a random-mode resume cursor. Explicit flags that conflict with a saved search are rejected; choose a different checkpoint for a new search. Corrupt or incompatible files are also rejected rather than reset. Completed searches do not scan again.
 
@@ -86,7 +86,7 @@ Confirmed coverage is never revisited by a normally resumed saved search. An abr
 
 ### Random benchmarks
 
-```sh uv run python -m bitcoin_puzzle benchmark --puzzle 71 --order random --seed 2a --seconds 30 ```
+```sh uv run python -m experiments.bitcoin_puzzle benchmark --puzzle 71 --order random --seed 2a --seconds 30 ```
 
 Benchmarks use independent temporary traversal state and never read or advance a saved search. Random-mode throughput includes chunk initialization and transitions. A single overall `--seconds` budget applies across chunks, with checks between GPU batches and after initialization. Non-preemptible initialization or a final batch can overrun a very short budget; actual elapsed time is always reported. `--tune` tunes the common sequential kernel first and then runs the random benchmark without changing any saved search.
 
@@ -98,19 +98,19 @@ Source: lotterypuzzle (2026), [Bitcoin Puzzle catalog](https://lotterypuzzle.org
 
 ## Validation
 
-```sh uv run pytest tests bitcoin_puzzle uv build ```
+```sh uv run pytest tests experiments uv build ```
 
 To include hardware tests in PowerShell:
 
-```powershell $env:BITCOIN_PUZZLE_CUDA_TESTS = '1' uv run pytest tests bitcoin_puzzle ```
+```powershell $env:BITCOIN_PUZZLE_CUDA_TESTS = '1' uv run pytest tests experiments ```
 
-Tests and public-key fixtures live here, separate from the library tests. The existing default `uv run pytest` continues to run the library suite; include `bitcoin_puzzle` explicitly to test this playground as well.
+Tests and public-key fixtures live here, separate from the library tests. The existing default `uv run pytest` continues to run the library suite; include `experiments/bitcoin_puzzle` explicitly to test this playground as well.
 
 ## Local benchmark
 
 Measured on 2026-10-27 with Python 3.11.14 on Windows in the Codex sandbox, using a ten-second benchmark over puzzle #71's complete interval, equivalent to:
 
-```sh uv run python -m bitcoin_puzzle benchmark --puzzle 71 --backend cpu --seconds 10 ```
+```sh uv run python -m experiments.bitcoin_puzzle benchmark --puzzle 71 --backend cpu --seconds 10 ```
 
 | Measurement | Result | | --- | --- | | Candidates checked | 11,813 | | Elapsed time | 10.000 seconds | | Average throughput | 1,181 keys/second | | Full puzzle #71 interval | About 31.7 billion years | | Uniform-key halfway estimate | About 15.8 billion years | | One-day coverage | About 8.65 × 10^-14 of the interval (8.65 × 10^-12%) |
 
@@ -142,6 +142,6 @@ The smaller-chunk run completed two chunks and entered a third, with 6.873 secon
 
 The random benchmark commands are reproducible without touching checkpoints:
 
-```sh uv run python -m bitcoin_puzzle benchmark --puzzle 71 --backend cuda --order random --seed 2a --chunk-size 4294967296 --seconds 30 uv run python -m bitcoin_puzzle benchmark --puzzle 71 --backend cuda --order random --seed 2a --seconds 60 ```
+```sh uv run python -m experiments.bitcoin_puzzle benchmark --puzzle 71 --backend cuda --order random --seed 2a --chunk-size 4294967296 --seconds 30 uv run python -m experiments.bitcoin_puzzle benchmark --puzzle 71 --backend cuda --order random --seed 2a --seconds 60 ```
 
 Final validation passed **828 tests**, including exhaustive small permutations, checkpoint corruption and locking, crash lock release, atomic replacement, GPU wall-clock budgets, and saved-search resumption from CUDA to CPU. 

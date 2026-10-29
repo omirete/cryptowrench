@@ -64,7 +64,7 @@ class CudaWorker:
             if self.device.get("type") != "device" or not isinstance(self.device.get("name"), str):
                 raise CudaError("Expected CUDA device information")
             if self.device.get("protocol") != 2:
-                raise CudaError("CUDA worker needs rebuilding: run python -m bitcoin_puzzle.setup_cuda")
+                raise CudaError("CUDA worker needs rebuilding: run python -m experiments.bitcoin_puzzle.setup_cuda")
             if type(self.device.get("sm")) is not int or self.device["sm"] <= 0:
                 raise CudaError("Invalid CUDA multiprocessor count")
             major, minor = self.device.get("major"), self.device.get("minor")
@@ -223,5 +223,5 @@ def select_backend(requested, device=0):
         return worker, f"CUDA: {worker.device['name']}"
     except (OSError, CudaError) as exc:
         if requested == "cuda":
-            raise CudaError(f"CUDA unavailable: {exc}. Run python -m bitcoin_puzzle.setup_cuda") from exc
+            raise CudaError(f"CUDA unavailable: {exc}. Run python -m experiments.bitcoin_puzzle.setup_cuda") from exc
         return None, f"CPU fallback: CUDA unavailable ({exc})"

@@ -151,6 +151,10 @@ Supply arguments from only one source. Omitted arguments use the defaults when n
 
 `derivation_path` and `fingerprint_parent_key` must be supplied together, alongside an explicit `private_key` and `chain_code`. They describe serialization metadata for an existing extended key; they do not derive a child wallet. The fingerprint must contain four bytes.
 
+## 🧪 Experiments
+
+The [experiments/](experiments/README.md) folder is a home for fun, educational explorations beyond the library examples, starting with the [Bitcoin puzzle playground](experiments/bitcoin_puzzle/README.md). Each experiment keeps its code, tests, and setup together. Experiments are excluded from published distributions.
+
 ## 🔬 Testing
 
 The test suite uses pytest and covers wallet creation and imports, key validation, Ethereum checksums, and HD derivation. BIP32 and BIP39 checks use published test vectors.

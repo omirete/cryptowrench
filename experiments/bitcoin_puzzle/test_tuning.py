@@ -4,10 +4,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from bitcoin_puzzle import tuning
-from bitcoin_puzzle.catalog import puzzle_target
-from bitcoin_puzzle.cuda import CudaError, default_configuration
-from bitcoin_puzzle.scanner import ScanResult
+from experiments.bitcoin_puzzle import tuning
+from experiments.bitcoin_puzzle.catalog import puzzle_target
+from experiments.bitcoin_puzzle.cuda import CudaError, default_configuration
+from experiments.bitcoin_puzzle.scanner import ScanResult
 
 
 @pytest.fixture
