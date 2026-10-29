@@ -34,13 +34,19 @@ Settings are keyed by device UUID and include the driver version and executable 
 
 It reports throughput, estimated full-range and halfway search times, and the fraction of the interval searchable in one day. These assume sustained speed and a uniformly placed key, not a promise of a solution. One-day coverage is capped at 100%; it is also the success probability under those assumptions when candidates are distinct and the target is still unclaimed.
 
-## Make a bounded attempt
+## Run a search
+
+To scan without a candidate limit, omit `--limit`:
+
+```sh uv run python -m bitcoin_puzzle scan --puzzle 71 uv run python -m bitcoin_puzzle scan --puzzle 71 --order random ```
+
+Both stop on a match, exhaustion of the selected range, or Ctrl+C. To cap a run:
 
 ```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --limit 10000 ```
 
 Both commands require `--puzzle N`, with numbers 1–160 supported. The address comes from the bundled catalog; inclusive bounds are derived as `2**(N-1)` through `2**N - 1`. The program prints the resolved number, address, and selected interval before scanning. It uses compressed public keys for every puzzle, including those whose public keys have been revealed; there is no kangaroo solver.
 
-Every scan requires a positive `--limit`. Bounds are hexadecimal, with or without `0x`; the limit is decimal. Optional `--start` and `--end` overrides select a subrange inside the puzzle's interval. Omitted bounds use that puzzle's endpoints. There is no `--address` option. Benchmark estimates use the selected subrange, so overriding the bounds also changes its coverage and time estimates.
+The `--limit` argument is optional. Omit it to search the entire remaining selected interval, stopping on a match, exhaustion, or Ctrl+C. When supplied, it must be positive. Bounds are hexadecimal, with or without `0x`; the limit is decimal. Optional `--start` and `--end` overrides select a subrange inside the puzzle's interval. Omitted bounds use that puzzle's endpoints. There is no `--address` option. Benchmark estimates use the selected subrange, so overriding the bounds also changes its coverage and time estimates.
 
 Progress appears about once a second. On completion or Ctrl+C, the tool reports the next untested scalar. Resume using that value, for example:
 
@@ -58,13 +64,13 @@ Sequential order remains the default. To visit chunks of the puzzle's range in a
 
 ```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --order random --limit 1000000000 ```
 
-Chunks do not overlap; keys inside each chunk are checked sequentially using the selected CPU or CUDA backend. The default chunk size is `2**34` (17,179,869,184 keys), amortizing GPU point initialization over a long scan. `--limit` still counts candidate keys in this invocation, across all chunks, and a limit can stop partway through a chunk.
+Chunks do not overlap; keys inside each chunk are checked sequentially using the selected CPU or CUDA backend. The default chunk size is `2**34` (17,179,869,184 keys), amortizing GPU point initialization over a long scan. An optional `--limit` counts candidate keys in this invocation, across all chunks, and can stop partway through a chunk. Without it, the saved traversal continues until a match, exhaustion, or Ctrl+C.
 
 The first run generates and prints a random 256-bit seed. An eight-round keyed BLAKE2b Feistel permutation visits each chunk exactly once without storing a visited-key set. Cycle walking supports non-power-of-two chunk counts; the last spatial chunk can be shorter. The permutation is versioned so an update cannot silently change the ordering of an existing saved search.
 
 ### Saved searches
 
-Random scans automatically save to `bitcoin_puzzle/.local/searches/puzzle-N-random.json`. Repeat the command to continue the same search, using any positive `--limit`. Backend choice and CUDA launch settings can change between runs. The saved bounds, seed, and chunk size are restored when their flags are omitted.
+Random scans automatically save to `bitcoin_puzzle/.local/searches/puzzle-N-random.json`. Repeat the command to continue the same search. Omit `--limit` to finish the remaining traversal, or supply a positive value to cap that invocation. Backend choice and CUDA launch settings can change between runs. The saved bounds, seed, and chunk size are restored when their flags are omitted.
 
 ```sh uv run python -m bitcoin_puzzle scan --puzzle 71 --order random --limit 1000000000 ```
 

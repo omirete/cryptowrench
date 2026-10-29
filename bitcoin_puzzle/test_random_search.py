@@ -264,11 +264,15 @@ def test_cli_resume_and_checkpoint_output(tmp_path, capsys):
     path = tmp_path / "cli.json"
     base = ["scan", "--puzzle", "8", "--order", "random", "--backend", "cpu", "--checkpoint", str(path)]
     assert main([*base, "--start", "80", "--end", "c8", "--seed", "2a", "--chunk-size", "7", "--limit", "10"]) == 0
-    assert main([*base, "--limit", "100"]) == 0
+    assert main(base) == 0  # Omitted limit finishes the remaining saved traversal.
+    assert main(base) == 0  # Completed checkpoints remain valid without a limit.
     output = capsys.readouterr().out
     assert "Resume:" in output and "--checkpoint" in output
     assert "Next untested scalar" not in output
     assert "search state: exhausted" in output
+    assert "Checked: 0;" in output
+    resume_lines = [line for line in output.splitlines() if line.startswith("Resume:")]
+    assert "--limit" not in resume_lines[-1]
     assert decode(json.loads(path.read_text())).checked == 73
 
 

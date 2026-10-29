@@ -191,7 +191,8 @@ def test_cli_largest_puzzle(capsys):
 
 
 @pytest.mark.parametrize("arguments", [
-    ["scan", "--puzzle", "71"],
+    ["scan", "--puzzle", "71", "--limit", "0"],
+    ["scan", "--puzzle", "71", "--limit", "-1"],
     ["scan", "--limit", "1"],
     ["scan", "--puzzle", "71", "--start", "1", "--limit", "1"],
     ["scan", "--puzzle", "71", "--address", PUZZLE_1.address, "--limit", "1"],
@@ -216,6 +217,20 @@ def test_benchmark_cli(capsys):
     output = capsys.readouterr().out
     assert "Full-range estimate:" in output
     assert "One-day coverage:" in output
+
+
+def test_scan_without_limit_finds_solution(capsys):
+    assert main(["scan", "--puzzle", "2"]) == 0
+    output = capsys.readouterr().out
+    assert "Status: match" in output
+    assert f"Verified private key: {3:064x}" in output
+
+
+def test_scan_without_limit_exhausts_selected_subrange(capsys):
+    assert main(["scan", "--puzzle", "2", "--start", "2", "--end", "2"]) == 0
+    output = capsys.readouterr().out
+    assert "Status: exhausted" in output
+    assert "Checked: 1;" in output
 
 
 def test_benchmark_estimates_selected_interval(capsys):

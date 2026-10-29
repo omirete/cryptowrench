@@ -34,7 +34,8 @@ def parser():
         command.add_argument("--seed", type=seed_value, help="Hexadecimal 256-bit random-search seed")
         if name == "scan":
             # The limit counts candidate keys, not seconds or the puzzle's bit size.
-            command.add_argument("--limit", type=int, required=True)
+            command.add_argument("--limit", type=int,
+                                 help="Maximum candidate keys this run; omit to search the remaining interval")
             command.add_argument("--checkpoint", type=Path, help="Random-search checkpoint path")
         else:
             command.add_argument("--seconds", type=float, default=10.0)
@@ -97,7 +98,9 @@ def main(argv=None):
             target = puzzle_target(args.puzzle, start=args.start, end=args.end)
         # Both bounds are included, so a one-key interval has size 1, not 0.
         size = target.end - target.start + 1
-        limit = args.limit if args.command == "scan" else size
+        # Both backends still receive an exact finite cap. The interval itself
+        # bounds an unlimited run; random traversal also stops at saved exhaustion.
+        limit = args.limit if args.command == "scan" and args.limit is not None else size
         seconds = args.seconds if args.command == "benchmark" else None
         validate_scan(target, limit, seconds)
         if args.device < 0:
@@ -159,7 +162,8 @@ def main(argv=None):
     if state is not None:
         print(f"Cumulative confirmed: {state.checked:,}/{state.size:,}; search state: {state.status}")
         if checkpoint:
-            print(f'Resume: uv run python -m bitcoin_puzzle scan --puzzle {args.puzzle} --order random --checkpoint "{checkpoint.path}" --limit {limit}')
+            limit_option = f" --limit {args.limit}" if args.limit is not None else ""
+            print(f'Resume: uv run python -m bitcoin_puzzle scan --puzzle {args.puzzle} --order random --checkpoint "{checkpoint.path}"{limit_option}')
     else:
         print(f"Next untested scalar: {hex(result.next_scalar) if result.next_scalar is not None else 'none (range exhausted)'}")
     if result.match is not None:
