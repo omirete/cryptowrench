@@ -7,7 +7,7 @@ from base58 import b58encode_check
 import pytest
 
 from bitcoin_puzzle import catalog, scanner
-from bitcoin_puzzle.__main__ import main
+from bitcoin_puzzle.__main__ import main as cli_main
 from bitcoin_puzzle.catalog import load_catalog, puzzle_target
 from bitcoin_puzzle.scanner import Target, decode_target, estimates, scan
 from cryptowrench.wallet import Wallet
@@ -15,6 +15,11 @@ from cryptowrench.wallet.helpers.elliptic_math import SECP256K1_Helpers
 
 
 PUZZLE_1 = Target("1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH", 1, 1)
+
+
+def main(arguments):
+    # Reference tests are deterministic on machines with or without CUDA.
+    return cli_main([*arguments, "--backend", "cpu"])
 
 
 def test_solved_puzzle_one():

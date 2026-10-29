@@ -43,10 +43,29 @@ class ScanResult:
     elapsed: float
     next_scalar: int | None
     match: int | None
+    initialization: float = 0.0
+    total_elapsed: float | None = None
 
     @property
     def rate(self) -> float:
         return self.checked / self.elapsed if self.elapsed > 0 else 0.0
+
+    @property
+    def end_to_end_rate(self) -> float:
+        elapsed = self.elapsed if self.total_elapsed is None else self.total_elapsed
+        return self.checked / elapsed if elapsed > 0 else 0.0
+
+
+def validate_scan(target, limit, seconds):
+    """Shared validation before either backend starts work."""
+    target_hash = decode_target(target.address)
+    if not 1 <= target.start <= target.end < SECP256K1_Helpers.order:
+        raise ValueError("Require 1 <= start <= end < secp256k1 order")
+    if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
+        raise ValueError("Candidate limit must be a positive integer")
+    if seconds is not None and (not math.isfinite(seconds) or seconds <= 0):
+        raise ValueError("Duration must be finite and positive")
+    return target_hash
 
 
 def scan(target: Target, limit: int, *, seconds: float | None = None,
@@ -58,24 +77,17 @@ def scan(target: Target, limit: int, *, seconds: float | None = None,
     """
     # Decode once: candidates can be compared as hashes without Base58 encoding
     # an address or constructing a full Wallet on every iteration.
-    target_hash = decode_target(target.address)
-    if not 1 <= target.start <= target.end < SECP256K1_Helpers.order:
-        raise ValueError("Require 1 <= start <= end < secp256k1 order")
-    if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
-        raise ValueError("Candidate limit must be a positive integer")
-    if seconds is not None and (not math.isfinite(seconds) or seconds <= 0):
-        raise ValueError("Duration must be finite and positive")
+    target_hash = validate_scan(target, limit, seconds)
 
     # perf_counter measures elapsed time without depending on wall-clock changes.
     # Accepting a clock also lets tests exercise duration limits deterministically.
     started = clock()
     last_progress = started
-    checked = 0
     candidate = target.start
     match = None
     status = "limit"
     try:
-        while candidate <= target.end and checked < limit:
+        while candidate <= target.end and candidate - target.start < limit:
             now = clock()
             if seconds is not None and now - started >= seconds:
                 status = "duration"
@@ -88,22 +100,26 @@ def scan(target: Target, limit: int, *, seconds: float | None = None,
                 if Wallet(private_key=key).address.bitcoin.P2PKH != target.address:
                     raise RuntimeError("Candidate failed independent Wallet verification")
                 match = candidate
-                checked += 1
                 candidate += 1
                 status = "match"
                 break
             candidate += 1
-            checked += 1
             if progress is not None and now - last_progress >= 1:
-                progress(checked, now - started, candidate if candidate <= target.end else None)
+                progress(candidate - target.start, now - started, candidate if candidate <= target.end else None)
                 last_progress = now
         else:
             status = "exhausted" if candidate > target.end else "limit"
     except KeyboardInterrupt:
         # Return progress instead of a traceback so the caller can resume manually.
-        status = "interrupted"
+        if match is not None:
+            candidate = match + 1
+            status = "match"
+        else:
+            status = "interrupted"
 
-    return ScanResult(status, checked, clock() - started,
+    # Derive the count from one committed cursor rather than updating two
+    # counters that Ctrl+C could interrupt between assignments.
+    return ScanResult(status, candidate - target.start, clock() - started,
                       candidate if candidate <= target.end else None, match)
 
 

@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/brichard19/BitCrack",
+  "revision": "6bf8059ef075eb1622298395866b0bd02375e1d9",
+  "archive_sha256": "d6e8cb149c107de76fae80b49ed878dd7cd5034a24ba04e7d52452fcfe2d0d6b",
+  "license": "MIT",
+  "cuda_release": "12.8.1",
+  "architecture": "sm_89"
+}
