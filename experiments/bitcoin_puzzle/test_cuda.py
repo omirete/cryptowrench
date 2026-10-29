@@ -6,11 +6,11 @@ import sys
 
 import pytest
 
-from bitcoin_puzzle import cuda
-from bitcoin_puzzle.catalog import puzzle_target
-from bitcoin_puzzle.cuda import CudaError, CudaWorker
-from bitcoin_puzzle.scanner import Target, scan
-from bitcoin_puzzle.tuning import validate_configuration
+from experiments.bitcoin_puzzle import cuda
+from experiments.bitcoin_puzzle.catalog import puzzle_target
+from experiments.bitcoin_puzzle.cuda import CudaError, CudaWorker
+from experiments.bitcoin_puzzle.scanner import Target, scan
+from experiments.bitcoin_puzzle.tuning import validate_configuration
 from cryptowrench.wallet.helpers.adresses.bitcoin import address_P2PKH
 from cryptowrench.wallet.helpers.keys import get_public_key
 
@@ -199,8 +199,8 @@ def test_gpu_wall_budget_includes_initialization(gpu):
 
 @pytest.mark.integration
 def test_random_resume_from_cuda_to_cpu(gpu, tmp_path):
-    from bitcoin_puzzle.checkpoint import Checkpoint
-    from bitcoin_puzzle.random_search import search
+    from experiments.bitcoin_puzzle.checkpoint import Checkpoint
+    from experiments.bitcoin_puzzle.random_search import search
 
     path = tmp_path / "gpu-random.json"
     seen = []

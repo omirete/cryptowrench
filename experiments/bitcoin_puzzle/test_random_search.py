@@ -6,13 +6,13 @@ import sys
 
 import pytest
 
-from bitcoin_puzzle import checkpoint as checkpoint_module
-from bitcoin_puzzle.__main__ import main
-from bitcoin_puzzle.checkpoint import Checkpoint, CheckpointError, decode, encode
-from bitcoin_puzzle.cuda import CudaError
-from bitcoin_puzzle.random_search import search
-from bitcoin_puzzle.scanner import ScanResult, scan
-from bitcoin_puzzle.traversal import ChunkPermutation, new_state
+from experiments.bitcoin_puzzle import checkpoint as checkpoint_module
+from experiments.bitcoin_puzzle.__main__ import main
+from experiments.bitcoin_puzzle.checkpoint import Checkpoint, CheckpointError, decode, encode
+from experiments.bitcoin_puzzle.cuda import CudaError
+from experiments.bitcoin_puzzle.random_search import search
+from experiments.bitcoin_puzzle.scanner import ScanResult, scan
+from experiments.bitcoin_puzzle.traversal import ChunkPermutation, new_state
 
 
 @pytest.mark.parametrize("count", [1, 2, 3, 4, 5, 7, 9, 15, 16, 17, 31, 32, 33, 65, 97, 1000])
@@ -216,7 +216,7 @@ def test_checkpoint_lock_is_exclusive_and_released(tmp_path):
 
 def test_crashed_process_releases_os_lock(tmp_path):
     path = tmp_path / "child.json"
-    script = "from bitcoin_puzzle.checkpoint import Checkpoint; import sys; c=Checkpoint(sys.argv[1]); c.__enter__(); print('locked',flush=True); sys.stdin.readline()"
+    script = "from experiments.bitcoin_puzzle.checkpoint import Checkpoint; import sys; c=Checkpoint(sys.argv[1]); c.__enter__(); print('locked',flush=True); sys.stdin.readline()"
     child = subprocess.Popen([sys.executable, "-c", script, str(path)],
                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
     try:

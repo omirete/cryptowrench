@@ -20,4 +20,4 @@ On interruption Python closes stdin, waits briefly, then kills and joins the pro
 
 The last batch masks hashes outside the requested prefix while retaining the point additions needed by batch inversion. Thus it can do auxiliary arithmetic outside the prefix, but compares exactly the permitted candidate hashes.
 
-Random traversal itself stays above this protocol. The Python coordinator sends one consecutive subrange per chunk and reuses the process across chunks. Native per-request counts therefore remain consecutive prefixes, while checkpoint positions use a permutation ordinal and offset. Rebuild older workers with `python -m bitcoin_puzzle.setup_cuda` before using protocol version 2.
+Random traversal itself stays above this protocol. The Python coordinator sends one consecutive subrange per chunk and reuses the process across chunks. Native per-request counts therefore remain consecutive prefixes, while checkpoint positions use a permutation ordinal and offset. Rebuild older workers with `python -m experiments.bitcoin_puzzle.setup_cuda` before using protocol version 2.

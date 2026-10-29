@@ -1,4 +1,4 @@
-"""Public test keys only. Run: uv run pytest bitcoin_puzzle"""
+"""Public test keys only. Run: uv run pytest experiments/bitcoin_puzzle"""
 
 from dataclasses import replace
 import json
@@ -6,10 +6,10 @@ import json
 from base58 import b58encode_check
 import pytest
 
-from bitcoin_puzzle import catalog, scanner
-from bitcoin_puzzle.__main__ import main as cli_main
-from bitcoin_puzzle.catalog import load_catalog, puzzle_target
-from bitcoin_puzzle.scanner import Target, decode_target, estimates, scan
+from experiments.bitcoin_puzzle import catalog, scanner
+from experiments.bitcoin_puzzle.__main__ import main as cli_main
+from experiments.bitcoin_puzzle.catalog import load_catalog, puzzle_target
+from experiments.bitcoin_puzzle.scanner import Target, decode_target, estimates, scan
 from cryptowrench.wallet import Wallet
 from cryptowrench.wallet.helpers.elliptic_math import SECP256K1_Helpers
 

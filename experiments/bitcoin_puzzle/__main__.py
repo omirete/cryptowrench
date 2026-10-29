@@ -1,4 +1,4 @@
-"""Run with uv run python -m bitcoin_puzzle from the repository root."""
+"""Run with uv run python -m experiments.bitcoin_puzzle from the repository root."""
 
 import argparse
 from contextlib import ExitStack
@@ -163,7 +163,7 @@ def main(argv=None):
         print(f"Cumulative confirmed: {state.checked:,}/{state.size:,}; search state: {state.status}")
         if checkpoint:
             limit_option = f" --limit {args.limit}" if args.limit is not None else ""
-            print(f'Resume: uv run python -m bitcoin_puzzle scan --puzzle {args.puzzle} --order random --checkpoint "{checkpoint.path}"{limit_option}')
+            print(f'Resume: uv run python -m experiments.bitcoin_puzzle scan --puzzle {args.puzzle} --order random --checkpoint "{checkpoint.path}"{limit_option}')
     else:
         print(f"Next untested scalar: {hex(result.next_scalar) if result.next_scalar is not None else 'none (range exhausted)'}")
     if result.match is not None:
